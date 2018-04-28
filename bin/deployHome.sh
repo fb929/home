@@ -1,6 +1,6 @@
 #!/bin/bash
 
-VERSION=${1:-"0.1"}
+VERSION=${1:-"0.2"}
 
 install -d $HOME/tmp/ &&
 if [[ -d $HOME/tmp/home-$VERSION ]]; then
