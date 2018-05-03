@@ -1,7 +1,7 @@
 # home
 deploy:  
 ```
-VERSION='0.2'
+VERSION='0.3'
 install -d $HOME/tmp/ &&
 if [[ -d $HOME/tmp/home-$VERSION ]]; then
 	rm -rf $HOME/tmp/home-$VERSION

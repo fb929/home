@@ -132,8 +132,8 @@ if version >= 714
 	au BufNewFile,BufRead * let b:mtabaftersp=matchadd('ErrorMsg', '\v( +)\zs(\t+)', -1)
 
 	" highlight string longer than eighty symbol
-	au BufWinEnter * let w:m1=matchadd('Search', '\%<81v.\%>77v', -1)
-	au BufWinEnter * let w:m2=matchadd('ErrorMsg', '\%>80v.\+', -1)
+	au BufWinEnter * let w:m1=matchadd('Search', '\%<81v.\%>177v', -1)
+	au BufWinEnter * let w:m2=matchadd('ErrorMsg', '\%>180v.\+', -1)
 endif
 
 " set tabs settings for html files
@@ -194,18 +194,6 @@ augroup py
 	autocmd BufRead,BufNewFile *.py* set smartindent
 	autocmd BufNewFile,BufRead *.py* let b:mtrailingws=matchadd('ErrorMsg', '\s\+$', -1)
 augroup END
-
-" Save history changes
-set undolevels=1000
-if version >= 730
-	execute "silent! !install -d ~/.vim/undodir"
-	set history=64
-	set undolevels=128
-	set undodir=~/.vim/undodir/
-	set undofile
-	set undolevels=1000
-	set undoreload=10000
-endif
 
 " fix term in screen
 if match($TERM, "screen")!=-1

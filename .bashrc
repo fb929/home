@@ -118,14 +118,13 @@ case $PARENT in
 		;;
 	screen)
 		source $HOME/.ssh/keep_vars
+		# this command must be run from shell within detached and re-attached screen session
+		# to interact with ssh-agent properly
+		alias fixssh="source $HOME/.ssh/keep_vars"
+		alias ssh='source $HOME/.ssh/keep_vars; ssh'
+		alias scp='source $HOME/.ssh/keep_vars; scp'
 		;;
 esac
-
-# this command must be run from shell within detached and re-attached screen session
-# to interact with ssh-agent properly
-alias fixssh="source $HOME/.ssh/keep_vars"
-alias ssh='source $HOME/.ssh/keep_vars; ssh'
-alias scp='source $HOME/.ssh/keep_vars; scp'
 
 # transfer over t.bk.ru
 transfer() {
