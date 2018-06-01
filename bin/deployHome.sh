@@ -20,4 +20,5 @@ wget --quiet --output-document=$HOME/tmp/v$VERSION.tar.gz https://github.com/fb9
 tar --gzip --extract --directory=$HOME/tmp/ --exclude=README.md --file=$HOME/tmp/v$VERSION.tar.gz &&
 rsync -a $HOME/tmp/home-$VERSION/ $HOME/
 sh $HOME/bin/fixPerm.sh
+chown -R $USER:$USER $HOME
 echo $VERSION > $HOME/.home_version
