@@ -173,3 +173,8 @@ if [[ -s /etc/puppet/puppet.conf ]]; then
 		alias pagent_penv="puppet agent -t --pluginsync --environment=gefimov_$PUPPET_ENV"
 	fi
 fi
+
+# bash_completion
+if [[ -s $HOME/.bash_completion ]]; then
+	source $HOME/.bash_completion
+fi
