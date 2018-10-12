@@ -163,9 +163,11 @@ export SCREENDIR=$HOME/.screen
 
 # puppet
 alias pagent='puppet agent -t --pluginsync'
-alias pagent_noop='puppet agent -t --noop --pluginsync'
+alias pagent_noop='puppet agent -t --pluginsync --noop'
 alias pagent_myenv='puppet agent -t --pluginsync --environment=gefimov'
-alias pagent_myenv_noop='puppet agent -t --noop --pluginsync --environment=gefimov'
+alias pagent_myenv_noop='puppet agent -t --pluginsync --environment=gefimov --noop'
+alias pagent_myenv_local='puppet agent -t --pluginsync --environment=gefimov_local'
+alias pagent_myenv_local_noop='puppet agent -t --pluginsync --environment=gefimov_local --noop'
 if [[ -s /etc/puppet/puppet.conf ]]; then
 	if grep -qw environment /etc/puppet/puppet.conf; then
 		PUPPET_ENV=$( grep -w environment /etc/puppet/puppet.conf | head -1 | awk '{print $NF}' )
