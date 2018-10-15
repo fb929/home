@@ -180,3 +180,6 @@ fi
 if [[ -s $HOME/.bash_completion ]]; then
 	source $HOME/.bash_completion
 fi
+
+# gpg
+export GPG_TTY=$(tty)
