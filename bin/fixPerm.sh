@@ -1,6 +1,10 @@
 #!/bin/bash
 
-chmod 0700 $HOME
+if [[ -f $HOME/.puppetmaster ]]; then
+	chmod 0711 $HOME
+else
+	chmod 0700 $HOME
+fi
 chmod 0700 \
 	$HOME/.ssh/ \
 	$HOME/.bash-git-prompt/ \
