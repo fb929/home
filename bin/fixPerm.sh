@@ -1,6 +1,6 @@
 #!/bin/bash
 
-chmod 0710 $HOME
+chmod 0700 $HOME
 chmod 0700 \
 	$HOME/.ssh/ \
 	$HOME/.bash-git-prompt/ \
