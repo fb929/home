@@ -183,3 +183,6 @@ fi
 
 # gpg
 export GPG_TTY=$(tty)
+
+# python shell autocomplete
+export PYTHONSTARTUP=~/.pythonrc
