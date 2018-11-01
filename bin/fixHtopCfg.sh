@@ -6,7 +6,7 @@ HTOP_CFG_DIR="$HOME/.config/htop"
 
 cd $HTOP_CFG_DIR/ || (echo "ERROR: failed change dir to $HTOP_CFG_DIR/"; exit 1 )
 if [[ -f htoprc-$HTOP_VERSION || -L htoprc-$HTOP_VERSION ]]; then
-	unlink htoprc
+	unlink htoprc 2>/dev/null
 	ln -s htoprc-$HTOP_VERSION htoprc
 elif [[ -f htoprc-$HTOP_DEFAULT_VERSION || -L htoprc-$HTOP_DEFAULT_VERSION ]]; then
 	unlink htoprc
