@@ -175,6 +175,8 @@ if [[ -s /etc/puppet/puppet.conf ]]; then
 		alias pagentPenv="puppet agent -t --pluginsync --environment=gefimov_$PUPPET_ENV"
 	fi
 fi
+alias pagentKill="rm -f /etc/cron.d/puppet_watchdog; service puppet stop; pkill -f '/usr/bin/puppet'; pkill -f '/usr/bin/puppet'; pkill -f '/usr/bin/puppet'; pkill -f 'puppet agent'"
+
 
 # bash_completion
 if [[ -s $HOME/.bash_completion ]]; then
