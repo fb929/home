@@ -37,26 +37,25 @@ else
 fi
 
 # check zones
-ZONE=${1:-internal} # network zones
-case $ZONE in
-	int|internal)
-		VERSION=$( $CURL --silent $URL_VERSIONS )
-		URL_TAR_PREFIX=$URL_TAR_PREFIX_INT
-	;;
-	ext|external)
-		VERSION=$( $CURL --silent $URL_RELEASES | grep -Po '"tag_name": "\K.*?(?=")' | sed 's|^v||' )
+# internal
+VERSION=$( $CURL --silent $URL_VERSIONS )
+if echo "$VERSION" | grep -qP "^[0-9\.]+$"; then
+	URL_TAR_PREFIX=$URL_TAR_PREFIX_INT
+else
+	# external
+	VERSION=$( $CURL --silent $URL_RELEASES | grep -Po '"tag_name": "\K.*?(?=")' | sed 's|^v||' )
+	if echo "$VERSION" | grep -qP "^[0-9\.]+$"; then
 		URL_TAR_PREFIX=$URL_TAR_PREFIX_EXT
-	;;
-	*) do_usage
-esac
+	else
+		echo "ERROR: failed version ($VERSION)"
+		exit 1
+	fi
+fi
+
 
 # check version
-if ! echo "$VERSION" | grep -qP "^[0-9\.]+$"; then
-	echo "ERROR: failed version ($VERSION)"
-	exit 1
-fi
 if [[ -s $HOME/.home_version ]]; then
-	CURRENT_VERSION=$(cat $HOME/.home_version )
+	CURRENT_VERSION=$(cat $HOME/.home_version 2>/dev/null)
 	if [[ $VERSION == $CURRENT_VERSION ]]; then
 		# home in actual
 		exit 0
