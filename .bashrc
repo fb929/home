@@ -51,9 +51,9 @@ HISTSIZE=9999999
 # aliases
 if [ x$(uname) = xLinux ]; then
 	alias ll='ls -alFh --color=auto'
-	alias la='ls -A --color=auto'
-	alias l='ls -CF --color=auto'
-	alias ltr='ls -ltr --color=auto'
+	alias la='ls -Ah --color=auto'
+	alias l='ls -CFh --color=auto'
+	alias ltr='ls -ltrh --color=auto'
 else
 	alias ll='ls -alGh'
 fi
