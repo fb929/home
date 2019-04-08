@@ -20,9 +20,17 @@ fi
 # prompt settings
 CHECK_SHELL=$( echo $SHELL | sed 's/^.*\///' )
 if [ x"$CHECK_SHELL" = xbash ]; then
+	# role
+	if [[ -s /.info/role ]]; then
+		ROLE=$(cat /.info/role)
+	else
+		ROLE='prod'
+	fi
 	export FULL_HOSTNAME=$( hostname -f 2>/dev/null || hostname )
-	if [ ${EUID} == 0 ] ; then
+	if [[ ${EUID} == 0 && $ROLE == 'prod' ]]; then
 		PROMT_COLOR="\[\033[01;31m\]"
+	elif [[ ${EUID} == 0 && $ROLE != 'prod' ]]; then
+		PROMT_COLOR="\[\033[01;33m\]"
 	else
 		PROMT_COLOR="\[\033[01;32m\]"
 	fi
