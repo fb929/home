@@ -196,3 +196,12 @@ export GPG_TTY=$(tty)
 
 # python shell autocomplete
 export PYTHONSTARTUP=~/.pythonrc
+
+# load other rc
+if [[ -d $HOME/.bashrc.d ]]; then
+	for FILE in $( ls $HOME/.bashrc.d/ ); do
+		if [[ -s $HOME/.bashrc.d/$FILE ]]; then
+			source $HOME/.bashrc.d/$FILE
+		fi
+	done
+fi
