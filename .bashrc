@@ -136,8 +136,11 @@ esac
 
 # transfer over t.bk.ru
 transfer() {
-	if [ $# -eq 0 ];
-		then echo "No arguments specified. Usage:\necho transfer /tmp/test.md\ncat /tmp/test.md | transfer test.md"
+	if [ $# -eq 0 ]; then
+		echo "No arguments specified"
+		echo "Usage:"
+		echo "    transfer /tmp/test.md"
+		echo "    cat /tmp/test.md | transfer test.md"
 		return 1
 	fi
 	TMPFILE=$( mktemp -t transferXXX )
@@ -154,6 +157,70 @@ transfer() {
 	fi
 	cat $TMPFILE
 	rm -f $TMPFILE
+}
+# paste
+pastecorp() {
+	do_usage_pastecorp(){
+		cat <<EOF 1>&1
+Usage:
+	pastecorp exp=100 /tmp/test.md
+	cat /tmp/test.md | pastecorp
+EOF
+	}
+	local EXPIRE=1 # default 1 day
+	# args {{
+	for ARG in $@; do
+		if echo "$ARG" | grep -qP -- "^(--help|-h|help)$"; then
+			do_usage_pastecorp
+			return 1
+		elif echo $ARG | grep -qP "^(exp|expire|EXP|EXPIRE)="; then
+			local EXPIRE=$( echo "$ARG" | sed 's|^.*=||')
+		elif [[ -s $ARG ]]; then
+			FILES+=($ARG)
+		fi
+		shift
+	done
+	# }}
+
+	# curl {{
+	if which .curl &> /dev/null; then
+		local CURL=$( which .curl )
+	else
+		local CURL=$( which curl )
+	fi
+	# }}
+	# name {{
+	if test -z $MR_USERNAME; then
+		local USERNAME=$USER
+	else
+		local USERNAME=$MR_USERNAME
+	fi
+	local NAME="${USERNAME}@$(hostname -s)"
+	# }}
+
+	if [[ -z $FILES ]]; then
+		read -d '' DATA_SOURCE
+		local DATA="text="${DATA_SOURCE}""
+		$CURL \
+			--request POST \
+			--data-urlencode "$DATA" \
+			--data "name=${NAME}" \
+			--data "expire=${EXPIRE}" \
+			--silent \
+			"https://paste.corp.mail.ru/api/create"
+	else
+		for FILE in ${FILES[@]}; do
+			local DATA="text@$FILE"
+			$CURL \
+				--request POST \
+				--data-urlencode "$DATA" \
+				--data "name=${NAME}" \
+				--data "expire=${EXPIRE}" \
+				--silent \
+				"https://paste.corp.mail.ru/api/create"
+		done
+		unset FILES
+	fi
 }
 
 # sources
