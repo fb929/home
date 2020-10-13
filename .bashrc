@@ -7,6 +7,23 @@ fi
 
 # user specific aliases and functions
 
+# env
+export LESS_TERMCAP_mb=$'\033[01;31m'
+export LESS_TERMCAP_md=$'\033[01;31m'
+export LESS_TERMCAP_me=$'\033[0m'
+export LESS_TERMCAP_se=$'\033[0m'
+export LESS_TERMCAP_so=$'\033[01;44;33m'
+export LESS_TERMCAP_ue=$'\033[0m'
+export LESS_TERMCAP_us=$'\033[01;32m'
+export SVN_EDITOR="vi"
+export GIT_EDITOR="vi"
+export EDITOR="vi"
+export GIT_SSL_NO_VERIFY="true"
+export LANG="en_US.UTF-8"
+export FTP_PASSIVE_MODE="YES"
+export GOPATH=$HOME/lib/go
+export PATH=$HOME/bin:$HOME/sbin:$PATH:/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:/opt/bin:/opt/local/bin:$GOPATH/bin:/cloud/bin:/usr/site/bin
+
 # залипуха c TERM для c5
 if [[ -f /etc/redhat-release ]]; then
 	CENTOS_VER=$( cat /etc/redhat-release  | awk '{print $3}' | cut -d "." -f 1 )
@@ -20,11 +37,16 @@ fi
 # prompt settings
 CHECK_SHELL=$( echo $SHELL | sed 's/^.*\///' )
 if [ x"$CHECK_SHELL" = xbash ]; then
-	# role
-	if [[ -s /.info/role ]]; then
-		ROLE=$(cat /.info/role)
-	else
-		ROLE='prod'
+	if [[  ${EUID} == 0 ]]; then
+		# role
+		if ! [[ -s $HOME/.info/role ]]; then
+			install -o $USER -d $HOME/.info/
+			FACTERLIB="/var/lib/puppet/lib/facter" facter role > $HOME/.info/role
+		fi
+		ROLE=$( cat $HOME/.info/role )
+		if [[ -z $ROLE ]]; then
+			ROLE='prod'
+		fi
 	fi
 	export FULL_HOSTNAME=$( hostname -f 2>/dev/null || hostname )
 	if [[ ${EUID} == 0 && $ROLE == 'prod' ]]; then
@@ -85,23 +107,6 @@ alias zepstat='curl 127.0.0.1:10001/status/'
 alias lock='co -l'
 alias unlock='ci -u'
 alias xat='cat'
-
-# env
-export LESS_TERMCAP_mb=$'\033[01;31m'
-export LESS_TERMCAP_md=$'\033[01;31m'
-export LESS_TERMCAP_me=$'\033[0m'
-export LESS_TERMCAP_se=$'\033[0m'
-export LESS_TERMCAP_so=$'\033[01;44;33m'
-export LESS_TERMCAP_ue=$'\033[0m'
-export LESS_TERMCAP_us=$'\033[01;32m'
-export SVN_EDITOR="vi"
-export GIT_EDITOR="vi"
-export EDITOR="vi"
-export GIT_SSL_NO_VERIFY="true"
-export LANG="en_US.UTF-8"
-export FTP_PASSIVE_MODE="YES"
-export GOPATH=$HOME/lib/go
-export PATH=$HOME/bin:$HOME/sbin:$PATH:/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:/opt/bin:/opt/local/bin:$GOPATH/bin:/cloud/bin:/usr/site/bin
 
 # banner
 if [[ $- == *i* ]] ; then
