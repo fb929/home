@@ -148,6 +148,17 @@ augroup html
 	autocmd BufRead,BufNewFile *.html set smartindent
 	autocmd BufNewFile,BufRead *.html let b:mtrailingws=matchadd('ErrorMsg', '\s\+$', -1)
 augroup END
+augroup xml
+	autocmd!
+	autocmd BufRead,BufNewFile *.xml match none
+	autocmd BufRead,BufNewFile *.xml set shiftwidth=4
+	autocmd BufRead,BufNewFile *.xml set tabstop=4
+	autocmd BufRead,BufNewFile *.xml set smarttab
+	autocmd BufRead,BufNewFile *.xml set expandtab
+	autocmd BufRead,BufNewFile *.xml set autoindent
+	autocmd BufRead,BufNewFile *.xml set smartindent
+	autocmd BufNewFile,BufRead *.xml let b:mtrailingws=matchadd('ErrorMsg', '\s\+$', -1)
+augroup END
 augroup yml
 	autocmd!
 	autocmd BufRead,BufNewFile *.yml* match none
