@@ -161,6 +161,7 @@ transfer() {
 		$CURL --progress-bar --upload-file "-" "https://t.bk.ru/$1" >> $TMPFILE
 	fi
 	cat $TMPFILE
+	echo
 	rm -f $TMPFILE
 }
 # paste
