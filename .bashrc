@@ -230,15 +230,24 @@ EOF
 	fi
 }
 
-# sources
-if [[ -f $HOME/.git-completion.sh ]]; then
-	source $HOME/.git-completion.sh
+# git completion {{
+GIT_VERSION=$( git version 2>/dev/null | awk '{print $3}' )
+if [[ $( echo -e "2.0.0.0\n" $GIT_VERSION | sort -V | tail -1 ) == "2.0.0.0" ]]; then
+	GIT_COMPLETION="$HOME/.git-completion.sh"
+else
+	GIT_COMPLETION="$HOME/.git-completion.bash"
 fi
+if [[ -f $GIT_COMPLETION ]]; then
+	source $GIT_COMPLETION
+fi
+# }}
 
+# git promt {{
 GIT_PROMPT_ONLY_IN_REPO=1
 if [[ -f $HOME/.bash-git-prompt/gitprompt.sh ]]; then
 	source $HOME/.bash-git-prompt/gitprompt.sh
 fi
+# }}
 
 # screen settings
 export SCREENDIR=$HOME/.screen
