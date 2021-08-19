@@ -232,7 +232,7 @@ EOF
 
 # git completion {{
 GIT_VERSION=$( git version 2>/dev/null | awk '{print $3}' )
-if [[ $( echo -e "2.0.0.0\n" $GIT_VERSION | sort -V | tail -1 ) == "2.0.0.0" ]]; then
+if [[ $( echo -e "2.0.0.0\n$GIT_VERSION" | sort -V | tail -1 ) == "2.0.0.0" ]]; then
 	GIT_COMPLETION="$HOME/.git-completion.sh"
 else
 	GIT_COMPLETION="$HOME/.git-completion.bash"
