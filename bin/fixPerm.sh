@@ -22,3 +22,7 @@ chmod 0600 \
 	$HOME/.gitconfig \
 
 chmod -R 0750 $HOME/bin/
+
+if [[ -f $HOME/.bash_history ]]; then
+	chown $USER:$USER $HOME/.bash_history
+fi
