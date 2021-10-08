@@ -23,7 +23,7 @@ export LANG="en_US.UTF-8"
 export LC_ALL="en_US.UTF-8"
 export FTP_PASSIVE_MODE="YES"
 export GOPATH=$HOME/lib/go
-export PATH=$HOME/bin:$HOME/sbin:$PATH:/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:/opt/bin:/opt/local/bin:$GOPATH/bin:/cloud/bin:/usr/site/bin
+export PATH=$HOME/bin:$HOME/sbin:$PATH:/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:/opt/bin:/opt/local/bin:$GOPATH/bin:/cloud/bin:/usr/site/bin:/puppet/bin
 
 # залипуха c TERM для c5
 if [[ -f /etc/redhat-release ]]; then
