@@ -1,10 +1,11 @@
 " tabs
 set paste
-set tabstop=8
-set shiftwidth=8
+set tabstop=4
+set shiftwidth=4
 set smarttab
 set autoindent
 set smartindent
+set expandtab
 set tabpagemax=100
 map <C-Left>	:tabprev<CR>
 map <C-Right>	:tabnext<CR>
@@ -110,7 +111,7 @@ highlight ExtraWhitespace ctermbg=red guibg=red
 " Show trailing whitepace
 " and spaces before a tab
 " and spaces used for indenting (so you use only tabs for indenting):
-match ExtraWhitespace /\s\+$\| \+\ze\t\|^\t*\zs \+/
+match ExtraWhitespace /\s\+$\| \+\ze\t\|\t\+/
 
 " auto chmod
 au BufWritePost * if getline(1) =~ "^#!.*/bin/"|silent !chmod a+x %
@@ -226,3 +227,9 @@ set modeline
 set modelines=5
 
 set hidden
+
+function OldTabs()
+	:set tabstop=8
+	:set shiftwidth=8
+	:match ExtraWhitespace /\s\+$\| \+\ze\t\|^\t*\zs \+/
+endfunction
