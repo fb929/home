@@ -231,5 +231,6 @@ set hidden
 function OldTabs()
 	:set tabstop=8
 	:set shiftwidth=8
+	:set noexpandtab
 	:match ExtraWhitespace /\s\+$\| \+\ze\t\|^\t*\zs \+/
 endfunction
