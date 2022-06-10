@@ -234,3 +234,4 @@ function OldTabs()
 	:set noexpandtab
 	:match ExtraWhitespace /\s\+$\| \+\ze\t\|^\t*\zs \+/
 endfunction
+map <C-O> :call OldTabs()
