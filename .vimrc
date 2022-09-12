@@ -163,8 +163,8 @@ augroup END
 augroup yml
 	autocmd!
 	autocmd BufRead,BufNewFile *.yml* match none
-	autocmd BufRead,BufNewFile *.yml* set shiftwidth=4
-	autocmd BufRead,BufNewFile *.yml* set tabstop=4
+	autocmd BufRead,BufNewFile *.yml* set shiftwidth=2
+	autocmd BufRead,BufNewFile *.yml* set tabstop=2
 	autocmd BufRead,BufNewFile *.yml* set smarttab
 	autocmd BufRead,BufNewFile *.yml* set expandtab
 	autocmd BufRead,BufNewFile *.yml* set autoindent
