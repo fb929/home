@@ -1,5 +1,5 @@
 [user]
-	name = "Grigory Efimov"
-	email = "g.efimov@corp.mail.ru"
+    name = "Grigory Efimov"
+    email = "g.efimov@corp.mail.ru"
 [push]
-	default = simple
+    default = simple
