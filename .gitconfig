@@ -1,5 +1,7 @@
 [user]
     name = "Grigory Efimov"
-    email = "g.efimov@corp.mail.ru"
+    email = "grigory.efimov@gmail.com"
 [push]
     default = simple
+[core]
+    autocrlf = input
