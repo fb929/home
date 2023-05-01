@@ -39,12 +39,12 @@ fi
 # check zones
 # internal
 VERSION=$( $CURL --silent $URL_VERSIONS )
-if echo "$VERSION" | grep -qP "^[0-9\.]+$"; then
+if echo "$VERSION" | egrep -q "^[0-9\.]+$"; then
     URL_TAR_PREFIX=$URL_TAR_PREFIX_INT
 else
     # external
-    VERSION=$( $CURL --silent $URL_RELEASES | grep -Po '"tag_name": "\K.*?(?=")' | sed 's|^v||' )
-    if echo "$VERSION" | grep -qP "^[0-9\.]+$"; then
+    VERSION=$( $CURL --silent $URL_RELEASES | grep '"tag_name":' | sed 's|.*":.*"v||; s|",||' )
+    if echo "$VERSION" | egrep -q "^[0-9\.]+$"; then
         URL_TAR_PREFIX=$URL_TAR_PREFIX_EXT
     else
         echo "ERROR: failed version ($VERSION)"
@@ -68,14 +68,14 @@ install -d $HOME/tmp/ &&
 if [[ -d $HOME/tmp/home-$VERSION ]]; then
     rm -rf $HOME/tmp/home-$VERSION
 fi
-wget --quiet --output-document=$HOME/tmp/v$VERSION.tar.gz $URL_TAR &&
+curl --silent --location --output $HOME/tmp/v$VERSION.tar.gz $URL_TAR &&
 tar --gzip --extract --directory=$HOME/tmp/ --exclude=README.md --file=$HOME/tmp/v$VERSION.tar.gz &&
 rsync -a $HOME/tmp/home-$VERSION/ $HOME/ &&
 sh $HOME/bin/fixPerm.sh &&
 sh $HOME/bin/fixHtopCfg.sh &&
 
 # fix owner
-tar --list --file=$HOME/tmp/v$VERSION.tar.gz | sed "s|home-$VERSION/|$HOME/|" | grep -v README.md | xargs chown $USER:$USER &&
+tar --list --file=$HOME/tmp/v$VERSION.tar.gz | sed "s|home-$VERSION/|$HOME/|" | egrep -v README.md | xargs chown $USER:$USER &&
 
 # set home version
 echo $VERSION > $HOME/.home_version
