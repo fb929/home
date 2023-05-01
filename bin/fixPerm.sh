@@ -1,5 +1,6 @@
 #!/bin/bash
 
+GROUP=$(id -gn)
 if [[ -f $HOME/.puppetmaster ]]; then
     chmod 0711 $HOME
 else
@@ -24,5 +25,5 @@ chmod 0600 \
 chmod -R 0750 $HOME/bin/
 
 if [[ -f $HOME/.bash_history ]]; then
-    chown $USER:$USER $HOME/.bash_history
+    chown $USER:$GROUP $HOME/.bash_history
 fi

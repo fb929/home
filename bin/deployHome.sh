@@ -4,19 +4,17 @@ PATH=/bin:/sbin:/usr/bin:/usr/sbin
 # usage
 do_usage(){
     cat <<EOF
-
 script for deploy home environment
-
 usage: $0 [internal|external]
-
 EOF
     exit 1
 }
 
 # vars
-URL_VERSIONS="http://v.i/g.efimov/home/version.txt"
+GROUP=$(id -gn)
+URL_VERSIONS="http://v.i/$USER/home/version.txt"
 URL_RELEASES="https://api.github.com/repos/fb929/home/releases/latest"
-URL_TAR_PREFIX_INT="http://v.i/g.efimov/home/v"
+URL_TAR_PREFIX_INT="http://v.i/$USER/home/v"
 URL_TAR_PREFIX_EXT="https://github.com/fb929/home/archive/v"
 
 # check user
@@ -26,11 +24,8 @@ if [[ $USER == root ]];then
 fi
 
 # check curl :\
-CURL_OPTIONS="--fail --connect-timeout 1 --max-time 1"
-if which .curl &>/dev/null; then
-    CURL=".curl $CURL_OPTIONS"
-elif which curl &>/dev/null; then
-    CURL="curl $CURL_OPTIONS"
+if which curl &>/dev/null; then
+    CURL="curl --fail --connect-timeout 1 --max-time 1"
 else
     echo "ERROR: programm curl not found"
     exit 1
@@ -68,15 +63,15 @@ install -d $HOME/tmp/ &&
 if [[ -d $HOME/tmp/home-$VERSION ]]; then
     rm -rf $HOME/tmp/home-$VERSION
 fi
-curl --silent --location --output $HOME/tmp/v$VERSION.tar.gz $URL_TAR &&
+$CURL --silent --location --output $HOME/tmp/v$VERSION.tar.gz $URL_TAR &&
 tar --gzip --extract --directory=$HOME/tmp/ --exclude=README.md --file=$HOME/tmp/v$VERSION.tar.gz &&
 rsync -a $HOME/tmp/home-$VERSION/ $HOME/ &&
 sh $HOME/bin/fixPerm.sh &&
 sh $HOME/bin/fixHtopCfg.sh &&
 
 # fix owner
-tar --list --file=$HOME/tmp/v$VERSION.tar.gz | sed "s|home-$VERSION/|$HOME/|" | egrep -v README.md | xargs chown $USER:$USER &&
+tar --list --file=$HOME/tmp/v$VERSION.tar.gz | sed "s|home-$VERSION/|$HOME/|" | egrep -v README.md | xargs chown $USER:$GROUP &&
 
 # set home version
 echo $VERSION > $HOME/.home_version
-chown $USER:$USER $HOME/.home_version 2>/dev/null
+chown $USER:$GROUP $HOME/.home_version 2>/dev/null
