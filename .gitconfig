@@ -3,5 +3,6 @@
     email = "grigory.efimov@gmail.com"
 [push]
     default = simple
+    autoSetupRemote = true
 [core]
     autocrlf = input
