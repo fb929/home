@@ -134,9 +134,11 @@ case $PARENT in
         source $HOME/.ssh/keep_vars 2>/dev/null
         # this command must be run from shell within detached and re-attached screen session
         # to interact with ssh-agent properly
-        alias fixssh="source $HOME/.ssh/keep_vars"
-        alias ssh='source $HOME/.ssh/keep_vars; ssh'
-        alias scp='source $HOME/.ssh/keep_vars; scp'
+        if [[ -s $HOME/.ssh/keep_vars ]]; then
+            alias fixssh="source $HOME/.ssh/keep_vars"
+            alias ssh='source $HOME/.ssh/keep_vars; ssh'
+            alias scp='source $HOME/.ssh/keep_vars; scp'
+        fi
         ;;
 esac
 
