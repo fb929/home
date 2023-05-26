@@ -174,8 +174,8 @@ augroup END
 augroup yaml
     autocmd!
     autocmd BufRead,BufNewFile *.yaml* match none
-    autocmd BufRead,BufNewFile *.yaml* set shiftwidth=4
-    autocmd BufRead,BufNewFile *.yaml* set tabstop=4
+    autocmd BufRead,BufNewFile *.yaml* set shiftwidth=2
+    autocmd BufRead,BufNewFile *.yaml* set tabstop=2
     autocmd BufRead,BufNewFile *.yaml* set smarttab
     autocmd BufRead,BufNewFile *.yaml* set expandtab
     autocmd BufRead,BufNewFile *.yaml* set autoindent
@@ -186,8 +186,8 @@ augroup END
 augroup eyaml
     autocmd!
     autocmd BufRead,BufNewFile *.eyaml* match none
-    autocmd BufRead,BufNewFile *.eyaml* set shiftwidth=4
-    autocmd BufRead,BufNewFile *.eyaml* set tabstop=4
+    autocmd BufRead,BufNewFile *.eyaml* set shiftwidth=2
+    autocmd BufRead,BufNewFile *.eyaml* set tabstop=2
     autocmd BufRead,BufNewFile *.eyaml* set smarttab
     autocmd BufRead,BufNewFile *.eyaml* set expandtab
     autocmd BufRead,BufNewFile *.eyaml* set autoindent
