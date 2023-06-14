@@ -206,6 +206,17 @@ augroup py
     autocmd BufRead,BufNewFile *.py* set smartindent
     autocmd BufNewFile,BufRead *.py* let b:mtrailingws=matchadd('ErrorMsg', '\s\+$', -1)
 augroup END
+augroup tf
+    autocmd!
+    autocmd BufRead,BufNewFile *.tf match none
+    autocmd BufRead,BufNewFile *.tf set shiftwidth=2
+    autocmd BufRead,BufNewFile *.tf set tabstop=2
+    autocmd BufRead,BufNewFile *.tf set smarttab
+    autocmd BufRead,BufNewFile *.tf set expandtab
+    autocmd BufRead,BufNewFile *.tf set autoindent
+    autocmd BufRead,BufNewFile *.tf set smartindent
+    autocmd BufNewFile,BufRead *.tf let b:mtrailingws=matchadd('ErrorMsg', '\s\+$', -1)
+augroup END
 
 " fix term in screen
 if match($TERM, "screen")!=-1
