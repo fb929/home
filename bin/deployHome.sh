@@ -25,7 +25,7 @@ fi
 
 # check curl :\
 if which curl &>/dev/null; then
-    CURL="curl --fail --connect-timeout 1 --max-time 1"
+    CURL="curl --fail --connect-timeout 6 --max-time 30"
 else
     echo "ERROR: programm curl not found"
     exit 1
