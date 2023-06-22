@@ -142,31 +142,6 @@ case $PARENT in
         ;;
 esac
 
-# transfer over t.bk.ru
-transfer() {
-    if [ $# -eq 0 ]; then
-        echo "No arguments specified"
-        echo "Usage:"
-        echo "    transfer /tmp/test.md"
-        echo "    cat /tmp/test.md | transfer test.md"
-        return 1
-    fi
-    TMPFILE=$( mktemp -t transferXXX )
-    if which .curl &> /dev/null; then
-        CURL=$( which .curl )
-    else
-        CURL=$( which curl )
-    fi
-    if tty -s; then
-        BASEFILE=$(basename "$1" | sed -e 's/[^a-zA-Z0-9._-]/-/g')
-        $CURL --progress-bar --upload-file "$1" "https://t.bk.ru/$BASEFILE" >> $TMPFILE
-    else
-        $CURL --progress-bar --upload-file "-" "https://t.bk.ru/$1" >> $TMPFILE
-    fi
-    cat $TMPFILE
-    echo
-    rm -f $TMPFILE
-}
 # paste
 pastecorp() {
     do_usage_pastecorp(){
