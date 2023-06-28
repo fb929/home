@@ -66,8 +66,8 @@ fi
 $CURL --silent --location --output $HOME/tmp/v$VERSION.tar.gz $URL_TAR &&
 tar --gzip --extract --directory=$HOME/tmp/ --exclude=README.md --file=$HOME/tmp/v$VERSION.tar.gz &&
 rsync -a $HOME/tmp/home-$VERSION/ $HOME/ &&
-sh $HOME/bin/fixPerm.sh &&
-sh $HOME/bin/fixHtopCfg.sh &&
+bash $HOME/bin/fixPerm.sh &&
+bash $HOME/bin/fixHtopCfg.sh &&
 
 # fix owner
 tar --list --file=$HOME/tmp/v$VERSION.tar.gz | sed "s|home-$VERSION/|$HOME/|" | egrep -v README.md | xargs chown $USER:$GROUP &&
