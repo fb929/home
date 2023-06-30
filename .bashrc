@@ -42,7 +42,7 @@ else
     )
     for I in ${TEST_PATH[@]}; do
         if ! echo "${PATH}" | egrep -q "(^|:)${I}:"; then
-            PATH=${I}:{PATH}
+            PATH=${I}:${PATH}
         fi
     done
 fi
