@@ -23,7 +23,30 @@ export LANG="en_US.UTF-8"
 export LC_ALL="en_US.UTF-8"
 export FTP_PASSIVE_MODE="YES"
 export GOPATH=$HOME/lib/go
-export PATH=$HOME/bin:$HOME/sbin:$PATH:/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:/opt/bin:/opt/local/bin:$GOPATH/bin:/cloud/bin:/usr/site/bin:/opt/puppet/bin
+export FACTERLIB=/opt/puppetlabs/puppet/cache/lib/facter
+if [ -z "${PATH-}" ] ; then
+      PATH=$HOME/bin:$HOME/sbin:/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:$GOPATH/bin:/opt/puppet/bin:/opt/puppetlabs/bin
+else
+    TEST_PATH=(
+        /bin
+        /sbin
+        /usr/bin
+        /usr/sbin
+        /usr/local/bin
+        /usr/local/sbin
+        $GOPATH/bin
+        /opt/puppet/bin
+        /opt/puppetlabs/bin
+        $HOME/bin
+        $HOME/sbin
+    )
+    for I in ${TEST_PATH[@]}; do
+        if ! echo "${PATH}" | egrep -q "(^|:)${I}:"; then
+            PATH=${I}:{PATH}
+        fi
+    done
+fi
+export PATH="${PATH}"
 
 # залипуха c TERM для c5
 if [[ -f /etc/redhat-release ]]; then
