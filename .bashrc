@@ -288,3 +288,6 @@ if [[ -d $HOME/.bashrc.d ]]; then
         fi
     done
 fi
+
+# terraform
+export TF_PLUGIN_CACHE_DIR="$HOME/.terraform.d/plugin-cache"
