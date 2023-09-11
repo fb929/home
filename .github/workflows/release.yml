@@ -42,10 +42,9 @@ jobs:
 
       # create asset {{
       - name: create tar archive
-        if: matrix.os != 'windows'
         run: |
           cd .. &&
-          mv ${{ github.event.repository.name }} ${{ github.event.repository.name }}-${{ steps.release-version.outputs.RELEASE_VERSION }} &&
+          cp -rp ${{ github.event.repository.name }} ${{ github.event.repository.name }}-${{ steps.release-version.outputs.RELEASE_VERSION }} &&
           tar \
             --create \
             --gzip \
