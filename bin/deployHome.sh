@@ -45,8 +45,8 @@ if [[ -s $HOME/.home_version ]]; then
 fi
 
 # url for tar
-URL_TAR=$( $CURL --silent $URL_RELEASES | grep browser_download_url | awk '{print $NF}' )
-if echo "$URL_TAR" | egrep -q "https://"; then
+URL_TAR=$( $CURL --silent $URL_RELEASES | grep '"browser_download_url":' | awk '{print $NF}' | tr -d '"' )
+if ! echo "$URL_TAR" | egrep -q "https://"; then
     echo "ERROR: bad url for tar='$URL_TAR'" 1>&2
     exit 1
 fi
