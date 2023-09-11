@@ -3,7 +3,7 @@ PATH=/bin:/sbin:/usr/bin:/usr/sbin
 
 # usage
 do_usage(){
-    cat <<EOF
+    cat <<EOF 1>&2
 script for deploy home environment
 usage: $0 [internal|external]
 EOF
@@ -12,41 +12,28 @@ EOF
 
 # vars
 GROUP=$(id -gn)
-URL_VERSIONS="http://v.i/$USER/home/version.txt"
 URL_RELEASES="https://api.github.com/repos/fb929/home/releases/latest"
-URL_TAR_PREFIX_INT="http://v.i/$USER/home/v"
-URL_TAR_PREFIX_EXT="https://github.com/fb929/home/archive/v"
 
 # check user
 if [[ $USER == root ]];then
-    echo "ERROR: USER = root" 1>&2
+    echo "ERROR: run user should be not a root" 1>&2
     exit 1
 fi
 
-# check curl :\
+# check curl
 if which curl &>/dev/null; then
     CURL="curl --fail --connect-timeout 6 --max-time 30"
 else
-    echo "ERROR: programm curl not found"
+    echo "ERROR: program 'curl' not found" 1>&2
     exit 1
 fi
 
-# check zones
-# internal
-VERSION=$( $CURL --silent $URL_VERSIONS )
-if echo "$VERSION" | egrep -q "^[0-9\.]+$"; then
-    URL_TAR_PREFIX=$URL_TAR_PREFIX_INT
-else
-    # external
-    VERSION=$( $CURL --silent $URL_RELEASES | grep '"tag_name":' | sed 's|.*":.*"v||; s|",||' )
-    if echo "$VERSION" | egrep -q "^[0-9\.]+$"; then
-        URL_TAR_PREFIX=$URL_TAR_PREFIX_EXT
-    else
-        echo "ERROR: failed version ($VERSION)"
-        exit 1
-    fi
+# get version
+VERSION=$( $CURL --silent $URL_RELEASES | grep '"tag_name":' | sed 's|.*":.*"v||; s|",||' )
+if ! echo "$VERSION" | egrep -q "^[0-9\.]+$"; then
+    echo "ERROR: failed get version='$VERSION'" 1>&2
+    exit 1
 fi
-
 
 # check version
 if [[ -s $HOME/.home_version ]]; then
@@ -56,7 +43,13 @@ if [[ -s $HOME/.home_version ]]; then
         exit 0
     fi
 fi
-URL_TAR="${URL_TAR_PREFIX}${VERSION}.tar.gz"
+
+# url for tar
+URL_TAR=$( $CURL --silent $URL_RELEASES | grep browser_download_url | awk '{print $NF}' )
+if echo "$URL_TAR" | egrep -q "https://"; then
+    echo "ERROR: bad url for tar='$URL_TAR'" 1>&2
+    exit 1
+fi
 
 # get and extract home tar
 install -d $HOME/tmp/ &&
