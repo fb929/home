@@ -22,3 +22,56 @@ jobs:
           release_name: Release ${{ github.ref }}
           draft: false
           prerelease: false
+  build:
+    name: build release
+    runs-on: ubuntu-22.04
+    needs: create_release
+    strategy:
+      matrix:
+        os:
+          - linux
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          sparse-checkout: |
+            .gitignore
+            .github
+            .git
+
+      - name: get release version
+        id: release-version
+        run: |
+          echo "$GITHUB_REF_NAME" | sed 's|^[a-zA-Z]\+|RELEASE_VERSION=|' >> $GITHUB_OUTPUT
+
+      # create asset {{
+      - name: create tar archive
+        if: matrix.os != 'windows'
+        run: |
+          tar \
+            --create \
+            --gzip \
+            --verbose \
+            --exclude='.gitignore' \
+            --exclude='.github' \
+            --exclude='.git' \
+            --file=${{ github.event.repository.name }}-${{ steps.release-version.outputs.RELEASE_VERSION }}.${{ matrix.os }}-${{ matrix.arch }}.tgz \
+            .
+      # }}
+
+      - name: debug
+        run: |
+          ls -al ./
+
+      # upload-release-asset {{
+      - name: upload-release-asset tgz
+        if: matrix.os != 'windows'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: ./${{ github.event.repository.name }}-${{ steps.release-version.outputs.RELEASE_VERSION }}.${{ matrix.os }}-${{ matrix.arch }}.tgz
+          asset_name: ${{ github.event.repository.name }}-${{ steps.release-version.outputs.RELEASE_VERSION }}.${{ matrix.os }}-${{ matrix.arch }}.tgz
+          asset_content_type: application/gzip
+      # }}
