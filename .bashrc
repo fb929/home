@@ -41,7 +41,7 @@ else
         $HOME/sbin
     )
     for I in ${TEST_PATH[@]}; do
-        if ! echo "${PATH}" | egrep -q "(^|:)${I}:"; then
+        if ! echo "${PATH}" | grep -E -q "(^|:)${I}:"; then
             PATH=${I}:${PATH}
         fi
     done

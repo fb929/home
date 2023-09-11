@@ -30,7 +30,7 @@ fi
 
 # get version
 VERSION=$( $CURL --silent $URL_RELEASES | grep '"tag_name":' | sed 's|.*":.*"v||; s|",||' )
-if ! echo "$VERSION" | egrep -q "^[0-9\.]+$"; then
+if ! echo "$VERSION" | grep -E -q "^[0-9\.]+$"; then
     echo "ERROR: failed get version='$VERSION'" 1>&2
     exit 1
 fi
@@ -46,7 +46,7 @@ fi
 
 # url for tar
 URL_TAR=$( $CURL --silent $URL_RELEASES | grep '"browser_download_url":' | awk '{print $NF}' | tr -d '"' )
-if ! echo "$URL_TAR" | egrep -q "https://"; then
+if ! echo "$URL_TAR" | grep -E -q "https://"; then
     echo "ERROR: bad url for tar='$URL_TAR'" 1>&2
     exit 1
 fi
@@ -63,7 +63,7 @@ bash $HOME/bin/fixPerm.sh &&
 bash $HOME/bin/fixHtopCfg.sh &&
 
 # fix owner
-tar --list --file=$HOME/tmp/v$VERSION.tar.gz | sed "s|home-$VERSION/|$HOME/|" | egrep -v README.md | xargs chown $USER:$GROUP &&
+tar --list --file=$HOME/tmp/v$VERSION.tar.gz | sed "s|home-$VERSION/|$HOME/|" | grep -E -v README.md | xargs chown $USER:$GROUP &&
 
 # set home version
 echo $VERSION > $HOME/.home_version
