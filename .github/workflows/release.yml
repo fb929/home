@@ -26,10 +26,6 @@ jobs:
     name: build release
     runs-on: ubuntu-22.04
     needs: create_release
-    strategy:
-      matrix:
-        os:
-          - linux
     steps:
       - uses: actions/checkout@v4
         with:
@@ -48,7 +44,8 @@ jobs:
       - name: create tar archive
         if: matrix.os != 'windows'
         run: |
-          cd ..
+          cd .. &&
+          mv ${{ github.event.repository.name }} ${{ github.event.repository.name }}-${{ steps.release-version.outputs.RELEASE_VERSION }} &&
           tar \
             --create \
             --gzip \
@@ -56,8 +53,8 @@ jobs:
             --exclude='.gitignore' \
             --exclude='.github' \
             --exclude='.git' \
-            --file=${{ github.event.repository.name }}-${{ steps.release-version.outputs.RELEASE_VERSION }}.${{ matrix.os }}-${{ matrix.arch }}.tgz \
-            ${{ github.workspace }}
+            --file=${{ github.event.repository.name }}-${{ steps.release-version.outputs.RELEASE_VERSION }}.tar.gz \
+            ${{ github.event.repository.name }}-${{ steps.release-version.outputs.RELEASE_VERSION }}
       # }}
 
       - name: debug
@@ -66,14 +63,13 @@ jobs:
           ls -al ../
 
       # upload-release-asset {{
-      - name: upload-release-asset tgz
-        if: matrix.os != 'windows'
+      - name: upload-release-asset tar.gz
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: ./${{ github.event.repository.name }}-${{ steps.release-version.outputs.RELEASE_VERSION }}.${{ matrix.os }}-${{ matrix.arch }}.tgz
-          asset_name: ${{ github.event.repository.name }}-${{ steps.release-version.outputs.RELEASE_VERSION }}.${{ matrix.os }}-${{ matrix.arch }}.tgz
+          asset_path: ./${{ github.event.repository.name }}-${{ steps.release-version.outputs.RELEASE_VERSION }}.tar.gz
+          asset_name: ${{ github.event.repository.name }}-${{ steps.release-version.outputs.RELEASE_VERSION }}.tar.gz
           asset_content_type: application/gzip
       # }}
