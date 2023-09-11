@@ -48,6 +48,7 @@ jobs:
       - name: create tar archive
         if: matrix.os != 'windows'
         run: |
+          cd ..
           tar \
             --create \
             --gzip \
@@ -56,12 +57,13 @@ jobs:
             --exclude='.github' \
             --exclude='.git' \
             --file=${{ github.event.repository.name }}-${{ steps.release-version.outputs.RELEASE_VERSION }}.${{ matrix.os }}-${{ matrix.arch }}.tgz \
-            .
+            ${{ github.workspace }}
       # }}
 
       - name: debug
         run: |
           ls -al ./
+          ls -al ../
 
       # upload-release-asset {{
       - name: upload-release-asset tgz
