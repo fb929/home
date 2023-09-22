@@ -254,14 +254,14 @@ export SCREENDIR=$HOME/.screen
 
 # puppet
 alias pagent='puppet agent -t'
-alias pagentNoop='puppet agent -t --noop'
-alias pagentMyenv='puppet agent -t --environment=gefimov'
-alias pagentMyenvNoop='puppet agent -t --environment=gefimov --noop'
+alias pagent_noop='puppet agent -t --noop'
+alias pagentmyenv='puppet agent -t --environment=gefimov'
+alias pagentmyenv_noop='puppet agent -t --environment=gefimov --noop'
 if [[ -s /etc/puppet/puppet.conf ]]; then
     if grep -qw environment /etc/puppet/puppet.conf; then
         PUPPET_ENV=$( grep -w environment /etc/puppet/puppet.conf | head -1 | awk '{print $NF}' )
-        alias pagentPenvNoop="puppet agent -t --environment=gefimov_$PUPPET_ENV --noop"
-        alias pagentPenv="puppet agent -t --environment=gefimov_$PUPPET_ENV"
+        alias pagentpenv_noop="puppet agent -t --environment=gefimov_$PUPPET_ENV --noop"
+        alias pagentpenv="puppet agent -t --environment=gefimov_$PUPPET_ENV"
     fi
 fi
 alias pagentKill="rm -f /etc/cron.d/puppet_watchdog; service puppet stop; pkill -f '/usr/bin/puppet'; pkill -f '/usr/bin/puppet'; pkill -f '/usr/bin/puppet'; pkill -f 'puppet agent'"
