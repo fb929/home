@@ -289,3 +289,11 @@ fi
 
 # terraform
 export TF_PLUGIN_CACHE_DIR="$HOME/.terraform.d/plugin-cache"
+
+# child process pids
+function getcpid() {
+    cpids=$( pgrep -P $1| xargs )
+    for cpid in $cpids; do
+        getcpid $cpid
+    done
+}
