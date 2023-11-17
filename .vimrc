@@ -217,6 +217,18 @@ augroup tf
     autocmd BufRead,BufNewFile *.tf set smartindent
     autocmd BufNewFile,BufRead *.tf let b:mtrailingws=matchadd('ErrorMsg', '\s\+$', -1)
 augroup END
+augroup golang
+    autocmd!
+    autocmd BufRead,BufNewFile *.go match none
+    autocmd BufRead,BufNewFile *.go set shiftwidth=4
+    autocmd BufRead,BufNewFile *.go set tabstop=4
+    autocmd BufRead,BufNewFile *.go set smarttab
+    autocmd BufRead,BufNewFile *.go set noexpandtab
+    autocmd BufRead,BufNewFile *.go set autoindent
+    autocmd BufRead,BufNewFile *.go set smartindent
+    autocmd BufNewFile,BufRead *.go let b:mtrailingws=matchadd('ErrorMsg', 's\+$', -1)
+    autocmd BufNewFile,BufRead *.go let b:mtrailingws=matchadd('ErrorMsg', '/\s\+$\| \+\ze\t\|^\t*\zs \+/', -1)
+augroup END
 
 " fix term in screen
 if match($TERM, "screen")!=-1
