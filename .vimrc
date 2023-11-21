@@ -229,6 +229,18 @@ augroup golang
     autocmd BufNewFile,BufRead *.go let b:mtrailingws=matchadd('ErrorMsg', 's\+$', -1)
     autocmd BufNewFile,BufRead *.go let b:mtrailingws=matchadd('ErrorMsg', '/\s\+$\| \+\ze\t\|^\t*\zs \+/', -1)
 augroup END
+augroup gomod
+    autocmd!
+    autocmd BufRead,BufNewFile *.mod match none
+    autocmd BufRead,BufNewFile *.mod set shiftwidth=4
+    autocmd BufRead,BufNewFile *.mod set tabstop=4
+    autocmd BufRead,BufNewFile *.mod set smarttab
+    autocmd BufRead,BufNewFile *.mod set noexpandtab
+    autocmd BufRead,BufNewFile *.mod set autoindent
+    autocmd BufRead,BufNewFile *.mod set smartindent
+    autocmd BufNewFile,BufRead *.mod let b:mtrailingws=matchadd('ErrorMsg', 's\+$', -1)
+    autocmd BufNewFile,BufRead *.mod let b:mtrailingws=matchadd('ErrorMsg', '/\s\+$\| \+\ze\t\|^\t*\zs \+/', -1)
+augroup END
 
 " fix term in screen
 if match($TERM, "screen")!=-1
@@ -258,3 +270,9 @@ function OldTabs()
     :match ExtraWhitespace /\s\+$\| \+\ze\t\|^\t*\zs \+/
 endfunction
 map <C-O> :call OldTabs()
+
+" Return to last edit position when opening files
+autocmd BufReadPost *
+    \ if line("'\"") > 0 && line("'\"") <= line("$") |
+    \   exe "normal! g`\"" |
+    \ endif
