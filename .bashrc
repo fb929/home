@@ -142,7 +142,7 @@ if [[ $- == *i* ]] ; then
 fi
 
 # save ssh
-PARENT="$(ps -o comm --no-headers $PPID)"
+PARENT="$(ps -o comm --no-headers $PPID 2>/dev/null)"
 case $PARENT in
     sshd)
         KEEP_VARS="SSH_CLIENT SSH_TTY SSH_AUTH_SOCK SSH_CONNECTION DISPLAY XAUTHORITY"
