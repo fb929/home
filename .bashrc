@@ -298,3 +298,5 @@ function getcpid() {
         getcpid $cpid
     done
 }
+
+export LOCKPRG='/bin/true'
