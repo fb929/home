@@ -65,7 +65,7 @@ if [ x"$CHECK_SHELL" = xbash ]; then
         # role
         if ! [[ -s $HOME/.info/role ]]; then
             install -o $USER -d $HOME/.info/
-            FACTERLIB="/var/lib/puppet/lib/facter" facter role > $HOME/.info/role
+            FACTERLIB="/var/lib/puppet/lib/facter" facter role > $HOME/.info/role 2>/dev/null
         fi
         ROLE=$( cat $HOME/.info/role )
         if [[ -z $ROLE ]]; then
