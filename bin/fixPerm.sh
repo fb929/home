@@ -30,5 +30,5 @@ fi
 
 # gitconfig
 if [[ -d $HOME/gpg/ ]]; then
-    mv $HOME/.gitconfig.gpg $HOME/.gitconfig
+    mv $HOME/.gitconfig_gpg $HOME/.gitconfig
 fi

@@ -6,5 +6,6 @@
     autoSetupRemote = true
 [core]
     autocrlf = input
+    excludesfile = ~/.gitignore_global
 [pull]
     rebase = false
