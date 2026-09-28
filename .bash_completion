@@ -1,0 +1,5 @@
+# Source all completion files from ~/.bash_completion.d
+for file in ~/.bash_completion.d/*; do
+    [[ -f "$file" ]] && source "$file"
+done
+unset file

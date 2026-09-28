@@ -1,0 +1,39 @@
+# Bash completion for rcli. Install to /etc/bash_completion.d/rcli
+# Instance names come from "rcli names", which only needs directory listing
+# permissions on /etc/redis (no sudo required).
+
+_rcli() {
+    local cur prev words cword
+    _init_completion 2>/dev/null || {
+        COMPREPLY=()
+        cur="${COMP_WORDS[COMP_CWORD]}"
+        cword="$COMP_CWORD"
+    }
+
+    if [[ "$cword" -eq 1 ]]; then
+        local names
+        names=$(rcli names 2>/dev/null)
+        COMPREPLY=( $(compgen -W "list names --help $names" -- "$cur") )
+        return 0
+    fi
+
+    # After the instance name: complete common redis-cli subcommands/options.
+    if [[ "$cword" -eq 2 ]]; then
+        local cmds="info ping monitor dbsize keys scan config client cluster sentinel role \
+                    --stat --bigkeys --memkeys --latency --scan --pipe --json"
+        COMPREPLY=( $(compgen -W "$cmds" -- "$cur") )
+        return 0
+    fi
+
+    if [[ "$cword" -eq 3 && "${COMP_WORDS[2]}" == "info" ]]; then
+        COMPREPLY=( $(compgen -W "server clients memory persistence stats replication cpu keyspace cluster all" -- "$cur") )
+        return 0
+    fi
+
+    if [[ "$cword" -eq 3 && "${COMP_WORDS[2]}" == "sentinel" ]]; then
+        COMPREPLY=( $(compgen -W "masters master replicas sentinels get-master-addr-by-name ckquorum failover reset" -- "$cur") )
+        return 0
+    fi
+}
+
+complete -F _rcli rcli

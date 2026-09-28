@@ -1,0 +1,174 @@
+#!/usr/bin/env bash
+# rcli - redis-cli wrapper for multiple Redis/Sentinel instances on one host.
+#
+# Instance definitions are taken from /etc/redis/*.conf (see EXCLUDE_CONFS).
+# Port, password and bind address are read from the chosen instance's config.
+#
+# Usage:
+#   rcli list                      # instances: port, type, role, memory, auth
+#   rcli names                     # instance names only (used by completion)
+#   rcli <instance> [args...]      # <instance> = config name without .conf
+#   rcli <port> [args...]          # or a port number
+#
+# Examples:
+#   rcli cache
+#   rcli sentinel-cache sentinel masters
+#   rcli 6380 info replication
+
+set -euo pipefail
+
+CONF_DIR="${RCLI_CONF_DIR:-/etc/redis}"
+EXCLUDE_CONFS=(
+    "redis.conf"
+)
+QUERY_TIMEOUT="${RCLI_TIMEOUT:-3}"
+
+is_excluded() {
+    local name="$1" excluded
+    for excluded in "${EXCLUDE_CONFS[@]}"; do
+        [[ "$name" == "$excluded" ]] && return 0
+    done
+    return 1
+}
+
+list_confs() {
+    local conf
+    for conf in "$CONF_DIR"/*.conf; do
+        [[ -f "$conf" ]] || continue
+        is_excluded "$(basename "$conf")" && continue
+        echo "$conf"
+    done
+}
+
+conf_get() {  # conf_get <conf> <directive> -> first value of the directive
+    awk -v key="$2" '$1==key{print $2; exit}' "$1" | tr -d '"'
+}
+
+conf_host() {
+    local host
+    host=$(conf_get "$1" bind)
+    host="${host:-127.0.0.1}"
+    [[ "$host" == "0.0.0.0" || "$host" == "*" ]] && host="127.0.0.1"
+    echo "$host"
+}
+
+# Ports of masters/replicas monitored by any sentinel config on this host.
+# Sentinel rewrites its config with discovered replicas as "known-replica".
+sentinel_managed_ports() {
+    awk '$1=="sentinel" && ($2=="monitor" || $2=="known-replica" || $2=="known-slave") {print $5}' \
+        "$CONF_DIR"/*.conf 2>/dev/null | sort -u
+}
+
+conf_type() {  # conf_type <conf> <managed_ports>
+    local conf="$1" managed="$2" port
+    if awk '$1=="sentinel" && $2=="monitor"{found=1} END{exit !found}' "$conf"; then
+        echo "sentinel"
+    elif [[ "$(conf_get "$conf" cluster-enabled)" == "yes" ]]; then
+        echo "cluster"
+    else
+        port=$(conf_get "$conf" port)
+        if grep -qx "$port" <<<"$managed"; then
+            echo "sentinel-managed"
+        else
+            echo "standalone"
+        fi
+    fi
+}
+
+run_cli() {  # run_cli <conf> [redis-cli args...]
+    local conf="$1"; shift
+    local host port pass
+    host=$(conf_host "$conf")
+    port=$(conf_get "$conf" port)
+    pass=$(conf_get "$conf" requirepass)
+    if [[ -n "$pass" ]]; then
+        REDISCLI_AUTH="$pass" redis-cli -h "$host" -p "$port" "$@"
+    else
+        redis-cli -h "$host" -p "$port" "$@"
+    fi
+}
+
+live_info() {  # live_info <conf> -> INFO output, or empty if unreachable
+    timeout "$QUERY_TIMEOUT" bash -c "$(declare -f conf_get conf_host run_cli); run_cli '$1' info 2>/dev/null" \
+        | tr -d '\r' || true
+}
+
+info_field() {  # info_field <info_text> <key>
+    awk -F: -v key="$2" '$1==key{print $2; exit}' <<<"$1"
+}
+
+cmd_list() {
+    local managed conf name port pass auth type info role maxmem used
+    managed=$(sentinel_managed_ports)
+    printf "%-28s %-6s %-16s %-8s %-5s %-9s %-9s %s\n" \
+        "INSTANCE" "PORT" "TYPE" "ROLE" "AUTH" "MAXMEM" "USED" "BIND"
+    while read -r conf; do
+        name=$(basename "$conf" .conf)
+        port=$(conf_get "$conf" port)
+        pass=$(conf_get "$conf" requirepass)
+        [[ -n "$pass" ]] && auth="yes" || auth="no"
+        type=$(conf_type "$conf" "$managed")
+
+        info=$(live_info "$conf")
+        if [[ -n "$info" ]]; then
+            role=$(info_field "$info" role)
+            [[ "$type" == "sentinel" ]] && role="sentinel"
+            used=$(info_field "$info" used_memory_human)
+            maxmem=$(info_field "$info" maxmemory_human)
+            [[ "$maxmem" == "0B" ]] && maxmem="unlimited"
+            [[ "$type" == "sentinel" ]] && maxmem="-"
+        else
+            role="down?"
+            used="-"
+            maxmem=$(conf_get "$conf" maxmemory)
+            maxmem="${maxmem:-unlimited}"
+            [[ "$type" == "sentinel" ]] && maxmem="-"
+        fi
+
+        printf "%-28s %-6s %-16s %-8s %-5s %-9s %-9s %s\n" \
+            "$name" "${port:-?}" "$type" "$role" "$auth" "$maxmem" "$used" "$(conf_get "$conf" bind)"
+    done < <(list_confs)
+}
+
+resolve_conf() {
+    local instance="$1" conf
+    if [[ "$instance" =~ ^[0-9]+$ ]]; then
+        while read -r conf; do
+            [[ "$(conf_get "$conf" port)" == "$instance" ]] && { echo "$conf"; return 0; }
+        done < <(list_confs)
+    else
+        conf="$CONF_DIR/$instance.conf"
+        if [[ -f "$conf" ]] && ! is_excluded "$(basename "$conf")"; then
+            echo "$conf"; return 0
+        fi
+    fi
+    return 1
+}
+
+main() {
+    if [[ $# -eq 0 || "$1" == "--help" || "$1" == "-h" ]]; then
+        sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'
+        exit 0
+    fi
+    if [[ "$1" == "list" ]]; then
+        cmd_list
+        exit 0
+    fi
+    if [[ "$1" == "names" ]]; then
+        while read -r conf; do basename "$conf" .conf; done < <(list_confs)
+        exit 0
+    fi
+
+    local instance="$1"; shift
+    local conf
+    conf=$(resolve_conf "$instance") || {
+        echo "rcli: instance not found: $instance (try 'rcli list')" >&2
+        exit 1
+    }
+    [[ -r "$conf" ]] || { echo "rcli: cannot read $conf (need sudo?)" >&2; exit 1; }
+    [[ -n "$(conf_get "$conf" port)" ]] || { echo "rcli: no 'port' directive in $conf" >&2; exit 1; }
+
+    run_cli "$conf" "$@"
+}
+
+main "$@"
