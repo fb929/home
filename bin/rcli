@@ -10,6 +10,11 @@
 #   rcli <instance> [args...]      # <instance> = config name without .conf
 #   rcli <port> [args...]          # or a port number
 #
+# With no redis-cli args:
+#   stdout is a terminal            -> interactive console
+#   stdout is a pipe/file, stdin tty -> runs "info" (so "rcli x | grep ..." works)
+#   stdin is a pipe                 -> commands are read from stdin (redis-cli default)
+#
 # Examples:
 #   rcli cache
 #   rcli sentinel-cache sentinel masters
@@ -173,6 +178,12 @@ main() {
     }
     [[ -r "$conf" ]] || { echo "rcli: cannot read $conf (need sudo?)" >&2; exit 1; }
     [[ -n "$(conf_get "$conf" port)" ]] || { echo "rcli: no 'port' directive in $conf" >&2; exit 1; }
+
+    # Without a command redis-cli reads commands from stdin when stdout is not
+    # a tty, which looks like a hang in "rcli name | grep ...". Default to "info".
+    if [[ $# -eq 0 && ! -t 1 && -t 0 ]]; then
+        set -- info
+    fi
 
     run_cli "$conf" "$@"
 }
