@@ -59,19 +59,25 @@ sentinel_managed_ports() {
         "$CONF_DIR"/*.conf 2>/dev/null | sort -u
 }
 
-conf_type() {  # conf_type <conf> <managed_ports>
-    local conf="$1" managed="$2" port
+conf_type() {  # conf_type <conf> <managed_ports> <info_text>
+    local conf="$1" managed="$2" info="$3" port
     if awk '$1=="sentinel" && $2=="monitor"{found=1} END{exit !found}' "$conf"; then
-        echo "sentinel"
-    elif [[ "$(conf_get "$conf" cluster-enabled)" == "yes" ]]; then
-        echo "cluster"
+        echo "sentinel"; return
+    fi
+    if [[ "$(conf_get "$conf" cluster-enabled)" == "yes" ]]; then
+        echo "cluster"; return
+    fi
+    # A replica is managed if its *master* is monitored by a sentinel (ports may
+    # differ between hosts); a master is managed if its own port is monitored.
+    if [[ "$(info_field "$info" role)" == "slave" ]]; then
+        port=$(info_field "$info" master_port)
     else
         port=$(conf_get "$conf" port)
-        if grep -qx "$port" <<<"$managed"; then
-            echo "sentinel-managed"
-        else
-            echo "standalone"
-        fi
+    fi
+    if [[ -n "$port" ]] && grep -qx "$port" <<<"$managed"; then
+        echo "sentinel-managed"
+    else
+        echo "standalone"
     fi
 }
 
@@ -107,16 +113,16 @@ cmd_list() {
         port=$(conf_get "$conf" port)
         pass=$(conf_get "$conf" requirepass)
         [[ -n "$pass" ]] && auth="yes" || auth="no"
-        type=$(conf_type "$conf" "$managed")
-
         info=$(live_info "$conf")
+        type=$(conf_type "$conf" "$managed" "$info")
+
         if [[ -n "$info" ]]; then
             role=$(info_field "$info" role)
             [[ "$type" == "sentinel" ]] && role="sentinel"
             used=$(info_field "$info" used_memory_human)
             maxmem=$(info_field "$info" maxmemory_human)
             [[ "$maxmem" == "0B" ]] && maxmem="unlimited"
-            [[ "$type" == "sentinel" ]] && maxmem="-"
+            [[ "$type" == "sentinel" ]] && { maxmem="-"; used="-"; }
         else
             role="down?"
             used="-"
