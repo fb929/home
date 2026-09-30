@@ -5,30 +5,70 @@
 # Port, password and bind address are read from the chosen instance's config.
 #
 # Usage:
-#   rcli [list]                    # instances: port, type, role (role? = not serving yet), state, ...
-#   rcli --help                    # this text
+#   rcli [list]                    # table of all instances (columns below)
 #   rcli names                     # instance names only (used by completion)
-#   rcli status <instance>         # readiness only; exit 0 when "ok" (for wait loops)
+#   rcli status <instance>         # STATE only; exit 0 when "ok" (for wait loops)
 #   rcli shards <instance>         # "cluster nodes" grouped by shard, IPs resolved to hostnames
-#   rcli <instance> [args...]      # <instance> = config name without .conf
+#   rcli <instance> [args...]      # run redis-cli; <instance> = config name without .conf
 #   rcli <port> [args...]          # or a port number
+#   rcli --help                    # this text
 #
-# STATE (list/status): ok | loading [N%] | sync [N%|received] | link-down | down | <error, e.g. NOAUTH>
-#   Taken from INFO, which Redis answers even while loading the dataset
-#   (PING gets "LOADING" instead). loading = RDB/AOF load in progress,
-#   sync = replica receiving RDB from master: N% when the master sends a
-#   file (repl-diskless-sync no), bytes received so far when it streams
-#   (repl-diskless-sync yes, size unknown), link-down = replica lost master.
+# Columns of "rcli list":
+#   INSTANCE   config file name without .conf; rows are ordered by PORT
+#   PORT       "port" directive of the config
+#   TYPE       sentinel         = config has "sentinel monitor"
+#              cluster          = cluster-enabled yes
+#              sentinel-managed = master monitored by a sentinel config on this
+#                                 host, or a replica of such a master
+#              standalone       = none of the above
+#   ROLE       master | slave | sentinel, as reported by INFO. A trailing "?"
+#              (master?, slave?) means STATE is not "ok": the role comes from
+#              the config/nodes.conf and a failover meanwhile may change it.
+#              "?" alone = instance unreachable.
+#   STATE      ok         serving requests
+#              loading    loading RDB/AOF into memory (N% on Redis 7+); the
+#                         instance answers INFO but every other command gets
+#                         LOADING
+#              sync       replica receiving the RDB from its master: N% when
+#                         the master sends a file (repl-diskless-sync no),
+#                         bytes received so far when it streams (repl-diskless-
+#                         sync yes, total size unknown), plain "sync" before
+#                         the transfer starts (master doing bgsave / diskless
+#                         sync delay)
+#              link-down  replica not connected to its master (master_link_
+#                         status:down, no sync in progress), e.g. right after
+#                         start or while the master is unreachable
+#              down       no reply within $RCLI_TIMEOUT seconds (default 3):
+#                         not running, wrong port, or too busy to answer INFO
+#              <ERROR>    first word of an error reply, e.g. NOAUTH (password
+#                         in the config does not match)
+#   AUTH       yes = config has requirepass (it is used automatically)
+#   MAXMEM     maxmemory from INFO ("unlimited" when 0); from the config when
+#              the instance is down
+#   USED       used_memory_human from INFO
+#   MAIN@IOTHREADS
+#              CPU numbers (from ps): the CPU the main thread (redis-server)
+#              was last seen on, then after "@" one CPU per running io-thread
+#              (io_thd_N), e.g. 12@13,14,15; no "@" part = single-threaded I/O
+#   BIND       "bind" directive of the config; "-" = not set (all interfaces)
+#   MASTERS    sentinel only: "<name>=<host>:<port>[/<flags>]" for each
+#              monitored master, host resolved via /etc/hosts or reverse DNS;
+#              flags are shown only when not plain "master" (s_down, o_down...)
 #
 # With no redis-cli args:
 #   stdout is a terminal            -> interactive console
 #   stdout is a pipe/file, stdin tty -> runs "info" (so "rcli x | grep ..." works)
 #   stdin is a pipe                 -> commands are read from stdin (redis-cli default)
 #
+# Environment:
+#   RCLI_CONF_DIR  directory with the instance configs (default /etc/redis)
+#   RCLI_TIMEOUT   seconds to wait for a reply in list/status/shards (default 3)
+#
 # Examples:
 #   rcli cache
 #   rcli sentinel-cache sentinel masters
 #   rcli 6380 info replication
+#   until rcli status cache; do sleep 1; done
 
 set -euo pipefail
 
@@ -205,22 +245,25 @@ instance_state() {  # instance_state <info_text> <type>
     echo "ok"
 }
 
-# Whether I/O threads are actually running: Redis names them "io_thd_N", so
-# count such threads of the server process. Prints "no" or "<count>@<cpus>"
-# where <cpus> are the CPUs the threads were last seen on (psr).
-io_threads() {  # io_threads <pid>
+# CPUs the server threads were last seen on (psr): "<main>@<io,io,...>" where
+# <main> is the main thread (tid == pid) and the rest are the I/O threads,
+# which Redis names "io_thd_N". Without I/O threads only <main> is printed.
+thread_cpus() {  # thread_cpus <pid>
     local out
     [[ -n "$1" ]] || { echo "?"; return; }
     out=$(ps -T -p "$1" -o tid=,psr=,comm= 2>/dev/null \
-        | awk '$3 ~ /^io_thd_/ { n++; cpus = cpus (cpus ? "," : "") $2 } END { if (n) print n "@" cpus }')
-    echo "${out:-no}"
+        | awk -v pid="$1" '
+            $1 == pid          { main = $2 }
+            $3 ~ /^io_thd_/    { io = io (io ? "," : "") $2 }
+            END { if (main != "") print main (io ? "@" io : "") }')
+    echo "${out:-?}"
 }
 
 cmd_list() {
-    local managed conf name port pass auth type info role state maxmem used iothr masters bind
+    local managed conf name port pass auth type info role state maxmem used cpus masters bind
     managed=$(sentinel_managed_ports)
     {
-    printf '%s\t' "INSTANCE" "PORT" "TYPE" "ROLE" "STATE" "AUTH" "MAXMEM" "USED" "IOTHREADS" "BIND"; echo "MASTERS"
+    printf '%s\t' "INSTANCE" "PORT" "TYPE" "ROLE" "STATE" "AUTH" "MAXMEM" "USED" "MAIN@IOTHREADS" "BIND"; echo "MASTERS"
     while read -r conf; do
         name=$(basename "$conf" .conf)
         port=$(conf_get "$conf" port)
@@ -229,7 +272,7 @@ cmd_list() {
         info=$(live_info "$conf")
         type=$(conf_type "$conf" "$managed" "$info")
         state=$(instance_state "$info" "$type")
-        iothr="-"
+        cpus="-"
         masters="-"
 
         if [[ -n "$info" ]]; then
@@ -242,7 +285,7 @@ cmd_list() {
                 masters=$(sentinel_masters "$conf")
                 masters="${masters:-?}"
             else
-                iothr=$(io_threads "$(info_field "$info" process_id)")
+                cpus=$(thread_cpus "$(info_field "$info" process_id)")
                 # Until the instance serves requests its role is only what the
                 # config/nodes.conf says; a failover meanwhile may change it.
                 [[ "$state" == "ok" || -z "$role" ]] || role+="?"
@@ -256,7 +299,7 @@ cmd_list() {
         fi
 
         bind=$(conf_get "$conf" bind)
-        printf '%s\t' "$name" "${port:-?}" "$type" "${role:-?}" "$state" "$auth" "${maxmem:-?}" "${used:-?}" "$iothr" \
+        printf '%s\t' "$name" "${port:-?}" "$type" "${role:-?}" "$state" "$auth" "${maxmem:-?}" "${used:-?}" "$cpus" \
             "${bind:--}"; echo "$masters"
     done < <(list_confs)
     } | align_columns
@@ -365,7 +408,8 @@ resolve_conf() {
 
 main() {
     if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
-        sed -n '2,26p' "$0" | sed 's/^# \{0,1\}//'
+        # print the leading comment block (up to the first empty line)
+        sed -n '2,/^$/p' "$0" | sed '$d; s/^# \{0,1\}//'
         exit 0
     fi
     if [[ $# -eq 0 || "$1" == "list" ]]; then
