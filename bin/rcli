@@ -9,6 +9,7 @@
 #   rcli --help                    # this text
 #   rcli names                     # instance names only (used by completion)
 #   rcli status <instance>         # readiness only; exit 0 when "ok" (for wait loops)
+#   rcli shards <instance>         # "cluster nodes" grouped by shard, IPs resolved to hostnames
 #   rcli <instance> [args...]      # <instance> = config name without .conf
 #   rcli <port> [args...]          # or a port number
 #
@@ -255,6 +256,66 @@ cmd_list() {
     done < <(list_confs)
 }
 
+# "cluster nodes" grouped by shard: each master (ordered by its first slot)
+# followed by its replicas. IPs are resolved like in sentinel_masters. FLAGS
+# shows everything but the role (myself, fail?, fail, nofailover, ...) plus
+# the link state when it is not "connected".
+cmd_shards() {  # cmd_shards <conf>
+    local nodes id addr flags master link slots ip port r shard=0
+    local -A n_addr n_flags n_master n_link n_slots
+    local -a masters replicas
+    nodes=$(live_query "$1" cluster nodes)
+    [[ -n "$nodes" ]] || { echo "rcli: no reply from instance" >&2; return 1; }
+    if ! awk 'NR==1 { exit !(NF >= 8) }' <<<"$nodes"; then
+        echo "rcli: unexpected reply: $nodes" >&2   # e.g. ERR cluster support disabled
+        return 1
+    fi
+
+    while read -r id addr flags master _ _ _ link slots; do
+        [[ -n "$id" ]] || continue
+        ip="${addr%%:*}"; port="${addr#*:}"; port="${port%%@*}"
+        n_addr[$id]="$(resolve_host "$ip"):$port"
+        # role is derived from the master column; keep the remaining flags
+        n_flags[$id]=$(awk -F, '{ for (i = 1; i <= NF; i++) if ($i != "master" && $i != "slave")
+                                      out = out (out ? "," : "") $i } END { print out }' <<<"$flags")
+        n_master[$id]="$master"
+        n_link[$id]="$link"
+        # drop migrating/importing entries like [123->-<id>], join ranges with ","
+        n_slots[$id]=$(sed 's/\[[^]]*\]//g' <<<"$slots" | xargs | tr ' ' ',')
+        if [[ "$master" == "-" ]]; then
+            masters+=("$id")
+        else
+            replicas+=("$id")
+        fi
+    done <<<"$nodes"
+
+    node_row() {  # node_row <shard> <slots> <role> <id>
+        local extra="${n_flags[$4]}"
+        [[ "${n_link[$4]}" == "connected" ]] || extra+="${extra:+,}${n_link[$4]}"
+        printf "%-5s %-24s %-8s %-30s %-9s %s\n" "$1" "$2" "$3" "${n_addr[$4]}" "${4:0:8}" "${extra:--}"
+    }
+
+    printf "%-5s %-24s %-8s %-30s %-9s %s\n" "SHARD" "SLOTS" "ROLE" "NODE" "ID" "FLAGS"
+    # masters ordered by first slot; slotless masters last
+    while read -r _ id; do
+        shard=$((shard + 1))
+        node_row "$shard" "${n_slots[$id]:--}" "master" "$id"
+        for r in $(for r in ${replicas[@]+"${replicas[@]}"}; do
+                       [[ "${n_master[$r]}" == "$id" ]] && echo "${n_addr[$r]} $r"
+                   done | sort | awk '{ print $2 }'); do
+            node_row "" "" "replica" "$r"
+        done
+    done < <(for id in ${masters[@]+"${masters[@]}"}; do
+                 slots="${n_slots[$id]}"
+                 [[ -n "$slots" ]] && echo "${slots%%[-,]*} $id" || echo "99999 $id"
+             done | sort -n)
+    # replicas whose master is not in the list (should not happen)
+    for r in ${replicas[@]+"${replicas[@]}"}; do
+        grep -qx "${n_master[$r]}" < <(printf '%s\n' ${masters[@]+"${masters[@]}"}) \
+            || node_row "?" "" "replica" "$r"
+    done
+}
+
 cmd_status() {  # cmd_status <conf> -> prints STATE; exit 0 only when "ok"
     local conf="$1" info state
     info=$(live_info "$conf")
@@ -280,7 +341,7 @@ resolve_conf() {
 
 main() {
     if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
-        sed -n '2,25p' "$0" | sed 's/^# \{0,1\}//'
+        sed -n '2,26p' "$0" | sed 's/^# \{0,1\}//'
         exit 0
     fi
     if [[ $# -eq 0 || "$1" == "list" ]]; then
@@ -293,9 +354,9 @@ main() {
     fi
 
     local subcmd=""
-    if [[ "$1" == "status" ]]; then
+    if [[ "$1" == "status" || "$1" == "shards" ]]; then
         subcmd="$1"; shift
-        [[ $# -eq 1 ]] || { echo "usage: rcli status <instance>" >&2; exit 2; }
+        [[ $# -eq 1 ]] || { echo "usage: rcli $subcmd <instance>" >&2; exit 2; }
     fi
 
     local instance="$1"; shift
@@ -307,9 +368,10 @@ main() {
     [[ -r "$conf" ]] || { echo "rcli: cannot read $conf (need sudo?)" >&2; exit 1; }
     [[ -n "$(conf_get "$conf" port)" ]] || { echo "rcli: no 'port' directive in $conf" >&2; exit 1; }
 
-    if [[ "$subcmd" == "status" ]]; then
-        cmd_status "$conf" && exit 0 || exit 1
-    fi
+    case "$subcmd" in
+        status) cmd_status "$conf" && exit 0 || exit 1 ;;
+        shards) cmd_shards "$conf" && exit 0 || exit 1 ;;
+    esac
 
     # Without a command redis-cli reads commands from stdin when stdout is not
     # a tty, which looks like a hang in "rcli name | grep ...". Default to "info".
