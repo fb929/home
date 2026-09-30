@@ -5,7 +5,7 @@
 # Port, password and bind address are read from the chosen instance's config.
 #
 # Usage:
-#   rcli [list]                    # instances: port, type, role, state, memory, io-threads, sentinel masters
+#   rcli [list]                    # instances: port, type, role (role? = not serving yet), state, ...
 #   rcli --help                    # this text
 #   rcli names                     # instance names only (used by completion)
 #   rcli status <instance>         # readiness only; exit 0 when "ok" (for wait loops)
@@ -242,9 +242,12 @@ cmd_list() {
                 masters="${masters:-?}"
             else
                 iothr=$(io_threads "$(info_field "$info" process_id)")
+                # Until the instance serves requests its role is only what the
+                # config/nodes.conf says; a failover meanwhile may change it.
+                [[ "$state" == "ok" || -z "$role" ]] || role+="?"
             fi
         else
-            role="down?"
+            role="?"
             used="-"
             maxmem=$(conf_get "$conf" maxmemory)
             maxmem="${maxmem:-unlimited}"
