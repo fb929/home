@@ -46,13 +46,14 @@ is_excluded() {
     return 1
 }
 
-list_confs() {
-    local conf
+list_confs() {  # instance configs ordered by port; ones without a port last
+    local conf port
     for conf in "$CONF_DIR"/*.conf; do
         [[ -f "$conf" ]] || continue
         is_excluded "$(basename "$conf")" && continue
-        echo "$conf"
-    done
+        port=$(conf_get "$conf" port)
+        printf '%s\t%s\n' "${port:-999999}" "$conf"
+    done | sort -n -k1,1 | cut -f2-
 }
 
 conf_get() {  # conf_get <conf> <directive> -> first value of the directive
@@ -216,10 +217,10 @@ io_threads() {  # io_threads <pid>
 }
 
 cmd_list() {
-    local managed conf name port pass auth type info role state maxmem used iothr masters
-    local fmt="%-28s %-6s %-16s %-8s %-12s %-5s %-9s %-9s %-12s %-16s %s\n"
+    local managed conf name port pass auth type info role state maxmem used iothr masters bind
     managed=$(sentinel_managed_ports)
-    printf "$fmt" "INSTANCE" "PORT" "TYPE" "ROLE" "STATE" "AUTH" "MAXMEM" "USED" "IOTHREADS" "BIND" "MASTERS"
+    {
+    printf '%s\t' "INSTANCE" "PORT" "TYPE" "ROLE" "STATE" "AUTH" "MAXMEM" "USED" "IOTHREADS" "BIND"; echo "MASTERS"
     while read -r conf; do
         name=$(basename "$conf" .conf)
         port=$(conf_get "$conf" port)
@@ -254,9 +255,27 @@ cmd_list() {
             [[ "$type" == "sentinel" ]] && maxmem="-"
         fi
 
-        printf "$fmt" "$name" "${port:-?}" "$type" "${role:-?}" "$state" "$auth" "${maxmem:-?}" "${used:-?}" "$iothr" \
-            "$(conf_get "$conf" bind)" "$masters"
+        bind=$(conf_get "$conf" bind)
+        printf '%s\t' "$name" "${port:-?}" "$type" "${role:-?}" "$state" "$auth" "${maxmem:-?}" "${used:-?}" "$iothr" \
+            "${bind:--}"; echo "$masters"
     done < <(list_confs)
+    } | align_columns
+}
+
+# Print tab-separated rows as a left-aligned table, each column as wide as its
+# longest value (the last column is not padded).
+align_columns() {
+    awk -F'\t' '
+        { rows[NR] = $0; if (NF > nf) nf = NF
+          for (i = 1; i <= NF; i++) if (length($i) > w[i]) w[i] = length($i) }
+        END {
+            for (r = 1; r <= NR; r++) {
+                split(rows[r], f, "\t"); line = ""
+                for (i = 1; i <= nf; i++)
+                    line = line (i < nf ? sprintf("%-" w[i] "s  ", f[i]) : f[i])
+                print line
+            }
+        }'
 }
 
 # "cluster nodes" grouped by shard: each master (ordered by its first slot)
@@ -295,10 +314,11 @@ cmd_shards() {  # cmd_shards <conf>
     node_row() {  # node_row <shard> <slots> <role> <id>
         local extra="${n_flags[$4]}"
         [[ "${n_link[$4]}" == "connected" ]] || extra+="${extra:+,}${n_link[$4]}"
-        printf "%-5s %-24s %-8s %-30s %-9s %s\n" "$1" "$2" "$3" "${n_addr[$4]}" "${4:0:8}" "${extra:--}"
+        printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "${n_addr[$4]}" "${4:0:8}" "${extra:--}"
     }
 
-    printf "%-5s %-24s %-8s %-30s %-9s %s\n" "SHARD" "SLOTS" "ROLE" "NODE" "ID" "FLAGS"
+    {
+    printf '%s\t%s\t%s\t%s\t%s\t%s\n' "SHARD" "SLOTS" "ROLE" "NODE" "ID" "FLAGS"
     # masters ordered by first slot; slotless masters last
     while read -r _ id; do
         shard=$((shard + 1))
@@ -317,6 +337,7 @@ cmd_shards() {  # cmd_shards <conf>
         grep -qx "${n_master[$r]}" < <(printf '%s\n' ${masters[@]+"${masters[@]}"}) \
             || node_row "?" "" "replica" "$r"
     done
+    } | align_columns
 }
 
 cmd_status() {  # cmd_status <conf> -> prints STATE; exit 0 only when "ok"
