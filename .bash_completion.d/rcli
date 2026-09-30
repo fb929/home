@@ -13,7 +13,15 @@ _rcli() {
     if [[ "$cword" -eq 1 ]]; then
         local names
         names=$(rcli names 2>/dev/null)
-        COMPREPLY=( $(compgen -W "list names --help $names" -- "$cur") )
+        COMPREPLY=( $(compgen -W "list names status --help $names" -- "$cur") )
+        return 0
+    fi
+
+    # "rcli status <instance>": only instance names.
+    if [[ "${COMP_WORDS[1]}" == "status" ]]; then
+        if [[ "$cword" -eq 2 ]]; then
+            COMPREPLY=( $(compgen -W "$(rcli names 2>/dev/null)" -- "$cur") )
+        fi
         return 0
     fi
 

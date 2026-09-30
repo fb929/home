@@ -5,10 +5,19 @@
 # Port, password and bind address are read from the chosen instance's config.
 #
 # Usage:
-#   rcli list                      # instances: port, type, role, memory, io-threads, sentinel masters
+#   rcli [list]                    # instances: port, type, role, state, memory, io-threads, sentinel masters
+#   rcli --help                    # this text
 #   rcli names                     # instance names only (used by completion)
+#   rcli status <instance>         # readiness only; exit 0 when "ok" (for wait loops)
 #   rcli <instance> [args...]      # <instance> = config name without .conf
 #   rcli <port> [args...]          # or a port number
+#
+# STATE (list/status): ok | loading [N%] | sync [N%|received] | link-down | down | <error, e.g. NOAUTH>
+#   Taken from INFO, which Redis answers even while loading the dataset
+#   (PING gets "LOADING" instead). loading = RDB/AOF load in progress,
+#   sync = replica receiving RDB from master: N% when the master sends a
+#   file (repl-diskless-sync no), bytes received so far when it streams
+#   (repl-diskless-sync yes, size unknown), link-down = replica lost master.
 #
 # With no redis-cli args:
 #   stdout is a terminal            -> interactive console
@@ -147,6 +156,53 @@ info_field() {  # info_field <info_text> <key>
     awk -F: -v key="$2" '$1==key{print $2; exit}' <<<"$1"
 }
 
+human_bytes() {  # human_bytes <bytes> -> e.g. 1.3G, 512M, 900K
+    awk -v b="$1" 'BEGIN {
+        split("B K M G T", unit, " "); i = 1
+        while (b >= 1024 && i < 5) { b /= 1024; i++ }
+        printf (i == 1 ? "%d%s" : "%.1f%s"), b, unit[i] }'
+}
+
+# Readiness of an instance from its INFO output (see STATE in the header).
+# An unreachable instance gives empty INFO; an error reply (NOAUTH, ...) has no
+# redis_version line and its first word is used as the state.
+instance_state() {  # instance_state <info_text> <type>
+    local info="$1" type="$2" perc
+    [[ -n "$info" ]] || { echo "down"; return; }
+    if ! grep -q '^redis_version:' <<<"$info"; then
+        awk 'NR==1 { print $1; exit }' <<<"$info"
+        return
+    fi
+    if [[ "$(info_field "$info" loading)" == "1" ]]; then
+        perc=$(info_field "$info" loading_loaded_perc)  # Redis >= 7.0 only
+        echo "loading${perc:+ ${perc%.*}%}"
+        return
+    fi
+    if [[ "$type" != "sentinel" && "$(info_field "$info" role)" == "slave" ]]; then
+        if [[ "$(info_field "$info" master_sync_in_progress)" == "1" ]]; then
+            # Percent only when the RDB size is known. With diskless sync on the
+            # master (default since 7.0) total is -1, so show bytes received
+            # instead: a growing number means the transfer is running.
+            local total read
+            total=$(info_field "$info" master_sync_total_bytes)
+            read=$(info_field "$info" master_sync_read_bytes)
+            if [[ "$total" =~ ^[1-9] ]]; then
+                perc=$(info_field "$info" master_sync_perc)  # Redis >= 7.0 only
+                echo "sync${perc:+ ${perc%.*}%}"
+            elif [[ "$read" =~ ^[1-9] ]]; then
+                echo "sync $(human_bytes "$read")"
+            else
+                echo "sync"
+            fi
+            return
+        fi
+        if [[ "$(info_field "$info" master_link_status)" != "up" ]]; then
+            echo "link-down"; return
+        fi
+    fi
+    echo "ok"
+}
+
 # Whether I/O threads are actually running: Redis names them "io_thd_N", so
 # count such threads of the server process. Prints "no" or "<count>@<cpus>"
 # where <cpus> are the CPUs the threads were last seen on (psr).
@@ -159,10 +215,10 @@ io_threads() {  # io_threads <pid>
 }
 
 cmd_list() {
-    local managed conf name port pass auth type info role maxmem used iothr masters
-    local fmt="%-28s %-6s %-16s %-8s %-5s %-9s %-9s %-12s %-16s %s\n"
+    local managed conf name port pass auth type info role state maxmem used iothr masters
+    local fmt="%-28s %-6s %-16s %-8s %-12s %-5s %-9s %-9s %-12s %-16s %s\n"
     managed=$(sentinel_managed_ports)
-    printf "$fmt" "INSTANCE" "PORT" "TYPE" "ROLE" "AUTH" "MAXMEM" "USED" "IOTHREADS" "BIND" "MASTERS"
+    printf "$fmt" "INSTANCE" "PORT" "TYPE" "ROLE" "STATE" "AUTH" "MAXMEM" "USED" "IOTHREADS" "BIND" "MASTERS"
     while read -r conf; do
         name=$(basename "$conf" .conf)
         port=$(conf_get "$conf" port)
@@ -170,6 +226,7 @@ cmd_list() {
         [[ -n "$pass" ]] && auth="yes" || auth="no"
         info=$(live_info "$conf")
         type=$(conf_type "$conf" "$managed" "$info")
+        state=$(instance_state "$info" "$type")
         iothr="-"
         masters="-"
 
@@ -193,9 +250,17 @@ cmd_list() {
             [[ "$type" == "sentinel" ]] && maxmem="-"
         fi
 
-        printf "$fmt" "$name" "${port:-?}" "$type" "$role" "$auth" "$maxmem" "$used" "$iothr" \
+        printf "$fmt" "$name" "${port:-?}" "$type" "${role:-?}" "$state" "$auth" "${maxmem:-?}" "${used:-?}" "$iothr" \
             "$(conf_get "$conf" bind)" "$masters"
     done < <(list_confs)
+}
+
+cmd_status() {  # cmd_status <conf> -> prints STATE; exit 0 only when "ok"
+    local conf="$1" info state
+    info=$(live_info "$conf")
+    state=$(instance_state "$info" "$(conf_type "$conf" "$(sentinel_managed_ports)" "$info")")
+    echo "$state"
+    [[ "$state" == "ok" ]]
 }
 
 resolve_conf() {
@@ -214,17 +279,23 @@ resolve_conf() {
 }
 
 main() {
-    if [[ $# -eq 0 || "$1" == "--help" || "$1" == "-h" ]]; then
-        sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'
+    if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+        sed -n '2,25p' "$0" | sed 's/^# \{0,1\}//'
         exit 0
     fi
-    if [[ "$1" == "list" ]]; then
+    if [[ $# -eq 0 || "$1" == "list" ]]; then
         cmd_list
         exit 0
     fi
     if [[ "$1" == "names" ]]; then
         while read -r conf; do basename "$conf" .conf; done < <(list_confs)
         exit 0
+    fi
+
+    local subcmd=""
+    if [[ "$1" == "status" ]]; then
+        subcmd="$1"; shift
+        [[ $# -eq 1 ]] || { echo "usage: rcli status <instance>" >&2; exit 2; }
     fi
 
     local instance="$1"; shift
@@ -235,6 +306,10 @@ main() {
     }
     [[ -r "$conf" ]] || { echo "rcli: cannot read $conf (need sudo?)" >&2; exit 1; }
     [[ -n "$(conf_get "$conf" port)" ]] || { echo "rcli: no 'port' directive in $conf" >&2; exit 1; }
+
+    if [[ "$subcmd" == "status" ]]; then
+        cmd_status "$conf" && exit 0 || exit 1
+    fi
 
     # Without a command redis-cli reads commands from stdin when stdout is not
     # a tty, which looks like a hang in "rcli name | grep ...". Default to "info".
