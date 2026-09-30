@@ -5,7 +5,7 @@
 # Port, password and bind address are read from the chosen instance's config.
 #
 # Usage:
-#   rcli list                      # instances: port, type, role, memory, auth
+#   rcli list                      # instances: port, type, role, memory, io-threads, sentinel masters
 #   rcli names                     # instance names only (used by completion)
 #   rcli <instance> [args...]      # <instance> = config name without .conf
 #   rcli <port> [args...]          # or a port number
@@ -99,20 +99,70 @@ run_cli() {  # run_cli <conf> [redis-cli args...]
     fi
 }
 
-live_info() {  # live_info <conf> -> INFO output, or empty if unreachable
-    timeout "$QUERY_TIMEOUT" bash -c "$(declare -f conf_get conf_host run_cli); run_cli '$1' info 2>/dev/null" \
+live_query() {  # live_query <conf> [redis-cli args...] -> output, or empty if unreachable
+    timeout "$QUERY_TIMEOUT" bash -c "$(declare -f conf_get conf_host run_cli); run_cli \"\$@\" 2>/dev/null" _ "$@" \
         | tr -d '\r' || true
+}
+
+live_info() {  # live_info <conf> -> INFO output, or empty if unreachable
+    live_query "$1" info
+}
+
+# Resolve an IP to a hostname: /etc/hosts first, then reverse DNS (getent),
+# otherwise the IP itself. Results are cached per run.
+declare -A HOST_CACHE
+resolve_host() {  # resolve_host <ip>
+    local ip="$1" name=""
+    if [[ -n "${HOST_CACHE[$ip]+x}" ]]; then
+        echo "${HOST_CACHE[$ip]}"; return
+    fi
+    name=$(awk -v ip="$ip" '!/^[[:space:]]*#/ && $1 == ip { print $2; exit }' /etc/hosts 2>/dev/null)
+    if [[ -z "$name" ]]; then
+        name=$(timeout "$QUERY_TIMEOUT" getent hosts "$ip" 2>/dev/null | awk '{ print $2; exit }' || true)
+    fi
+    HOST_CACHE[$ip]="${name:-$ip}"
+    echo "${HOST_CACHE[$ip]}"
+}
+
+# Masters monitored by a sentinel: "name=host:port[/flags],..." (host is the
+# resolved IP, see resolve_host; flags shown only when not plain "master",
+# e.g. s_down/o_down). Non-tty redis-cli prints the reply as flat key/value
+# lines, so odd lines are keys and even lines values.
+sentinel_masters() {  # sentinel_masters <conf>
+    local name ip port flags out=""
+    while read -r name ip port flags; do
+        [[ -n "$name" ]] || continue
+        out+="${out:+,}$name=$(resolve_host "$ip"):$port"
+        [[ "$flags" == "master" ]] || out+="/$flags"
+    done < <(live_query "$1" sentinel masters | awk '
+        NR % 2 == 1 { key = $0; next }
+        key == "name"  { name = $0 }
+        key == "ip"    { ip = $0 }
+        key == "port"  { port = $0 }
+        key == "flags" { print name, ip, port, $0 }')
+    echo "$out"
 }
 
 info_field() {  # info_field <info_text> <key>
     awk -F: -v key="$2" '$1==key{print $2; exit}' <<<"$1"
 }
 
+# Whether I/O threads are actually running: Redis names them "io_thd_N", so
+# count such threads of the server process. Prints "no" or "<count>@<cpus>"
+# where <cpus> are the CPUs the threads were last seen on (psr).
+io_threads() {  # io_threads <pid>
+    local out
+    [[ -n "$1" ]] || { echo "?"; return; }
+    out=$(ps -T -p "$1" -o tid=,psr=,comm= 2>/dev/null \
+        | awk '$3 ~ /^io_thd_/ { n++; cpus = cpus (cpus ? "," : "") $2 } END { if (n) print n "@" cpus }')
+    echo "${out:-no}"
+}
+
 cmd_list() {
-    local managed conf name port pass auth type info role maxmem used
+    local managed conf name port pass auth type info role maxmem used iothr masters
+    local fmt="%-28s %-6s %-16s %-8s %-5s %-9s %-9s %-12s %-16s %s\n"
     managed=$(sentinel_managed_ports)
-    printf "%-28s %-6s %-16s %-8s %-5s %-9s %-9s %s\n" \
-        "INSTANCE" "PORT" "TYPE" "ROLE" "AUTH" "MAXMEM" "USED" "BIND"
+    printf "$fmt" "INSTANCE" "PORT" "TYPE" "ROLE" "AUTH" "MAXMEM" "USED" "IOTHREADS" "BIND" "MASTERS"
     while read -r conf; do
         name=$(basename "$conf" .conf)
         port=$(conf_get "$conf" port)
@@ -120,14 +170,21 @@ cmd_list() {
         [[ -n "$pass" ]] && auth="yes" || auth="no"
         info=$(live_info "$conf")
         type=$(conf_type "$conf" "$managed" "$info")
+        iothr="-"
+        masters="-"
 
         if [[ -n "$info" ]]; then
             role=$(info_field "$info" role)
-            [[ "$type" == "sentinel" ]] && role="sentinel"
             used=$(info_field "$info" used_memory_human)
             maxmem=$(info_field "$info" maxmemory_human)
             [[ "$maxmem" == "0B" ]] && maxmem="unlimited"
-            [[ "$type" == "sentinel" ]] && { maxmem="-"; used="-"; }
+            if [[ "$type" == "sentinel" ]]; then
+                role="sentinel"; maxmem="-"; used="-"
+                masters=$(sentinel_masters "$conf")
+                masters="${masters:-?}"
+            else
+                iothr=$(io_threads "$(info_field "$info" process_id)")
+            fi
         else
             role="down?"
             used="-"
@@ -136,8 +193,8 @@ cmd_list() {
             [[ "$type" == "sentinel" ]] && maxmem="-"
         fi
 
-        printf "%-28s %-6s %-16s %-8s %-5s %-9s %-9s %s\n" \
-            "$name" "${port:-?}" "$type" "$role" "$auth" "$maxmem" "$used" "$(conf_get "$conf" bind)"
+        printf "$fmt" "$name" "${port:-?}" "$type" "$role" "$auth" "$maxmem" "$used" "$iothr" \
+            "$(conf_get "$conf" bind)" "$masters"
     done < <(list_confs)
 }
 
