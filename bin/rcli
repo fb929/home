@@ -124,13 +124,15 @@ conf_type() {  # conf_type <conf> <managed_ports> <info_text>
         echo "cluster"; return
     fi
     # A replica is managed if its *master* is monitored by a sentinel (ports may
-    # differ between hosts); a master is managed if its own port is monitored.
+    # differ between hosts); a master is managed if one of its own ports is
+    # monitored. Sentinel may address the instance via its TLS port, so both
+    # "port" and "tls-port" are checked.
     if [[ "$(info_field "$info" role)" == "slave" ]]; then
         port=$(info_field "$info" master_port)
     else
-        port=$(conf_get "$conf" port)
+        port=$(printf '%s\n' "$(conf_get "$conf" port)" "$(conf_get "$conf" tls-port)")
     fi
-    if [[ -n "$port" ]] && grep -qx "$port" <<<"$managed"; then
+    if [[ -n "$port" ]] && grep -qxF -f <(grep -v '^$' <<<"$port") <<<"$managed"; then
         echo "sentinel-managed"
     else
         echo "standalone"
