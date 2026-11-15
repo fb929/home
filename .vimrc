@@ -103,8 +103,8 @@ map Б <
 map Ю >
 
 """ HIGHLIGHT
-" default syntax on
 syntax on
+filetype plugin indent on
 
 " my highlight group
 highlight ExtraWhitespace ctermbg=red guibg=red
@@ -242,6 +242,21 @@ augroup gomod
     autocmd BufNewFile,BufRead *.mod let b:mtrailingws=matchadd('ErrorMsg', '/\s\+$\| \+\ze\t\|^\t*\zs \+/', -1)
 augroup END
 
+" markdown: two trailing spaces are a hard line break, do not highlight them
+" (must stay below the global trailing whitespace autocommands above)
+function! MarkdownTrailingWhitespace()
+    match none
+    if exists('b:mtrailingws')
+        silent! call matchdelete(b:mtrailingws)
+    endif
+    " Highlight trailing whitespace unless it is exactly two spaces after text
+    let b:mtrailingws = matchadd('ErrorMsg', '\s\@<!\%(\S\@<=  $\)\@!\s\+$', -1)
+endfunction
+augroup markdown
+    autocmd!
+    autocmd BufRead,BufNewFile *.md,*.markdown call MarkdownTrailingWhitespace()
+augroup END
+
 " fix term in screen
 if match($TERM, "screen")!=-1
     set term=xterm-256color
@@ -276,3 +291,18 @@ autocmd BufReadPost *
     \ if line("'\"") > 0 && line("'\"") <= line("$") |
     \   exe "normal! g`\"" |
     \ endif
+
+" Syntax highlighting inside fenced code blocks
+let g:markdown_fenced_languages = [
+      \ 'bash=sh', 'sh', 'python', 'yaml', 'json',
+      \ 'hcl=terraform', 'dockerfile', 'go', 'sql', 'vim'
+      \ ]
+
+" Fold by headings (built-in markdown ftplugin)
+let g:markdown_folding = 1
+
+" Do not let the ftplugin force shiftwidth=4 / expandtab
+let g:markdown_recommended_style = 0
+
+" Highlight more lines for long code blocks
+let g:markdown_minlines = 200
