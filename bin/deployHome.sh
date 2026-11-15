@@ -1,5 +1,5 @@
 #!/bin/bash
-PATH=/bin:/sbin:/usr/bin:/usr/sbin
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/opt/homebrew/bin
 
 # usage
 do_usage(){
@@ -59,11 +59,12 @@ fi
 $CURL --silent --location --output $HOME/tmp/v$VERSION.tar.gz $URL_TAR &&
 tar --gzip --extract --directory=$HOME/tmp/ --exclude=README.md --file=$HOME/tmp/v$VERSION.tar.gz &&
 rsync -a $HOME/tmp/home-$VERSION/ $HOME/ &&
+
+# fix owner (must run before fixPerm.sh, which may rename .gitconfig_gpg)
+tar --list --file=$HOME/tmp/v$VERSION.tar.gz | sed "s|home-$VERSION/|$HOME/|" | grep -E -v README.md | xargs chown $USER:$GROUP &&
+
 bash $HOME/bin/fixPerm.sh &&
 bash $HOME/bin/fixHtopCfg.sh &&
-
-# fix owner
-tar --list --file=$HOME/tmp/v$VERSION.tar.gz | sed "s|home-$VERSION/|$HOME/|" | grep -E -v README.md | xargs chown $USER:$GROUP &&
 
 # set home version
 echo $VERSION > $HOME/.home_version
